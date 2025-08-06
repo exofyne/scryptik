@@ -83,7 +83,7 @@ local TRIGGER_MESSAGE = "."
 
 -- 🐾 БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Hamster",
+    "Wasp",
 }
 
 local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
