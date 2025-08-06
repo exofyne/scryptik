@@ -154,10 +154,11 @@ local function getServerLink()
     local placeId = game.PlaceId
     local jobId = game.JobId
     if not jobId or jobId == "" then
-        return "https://www.roblox.com/games/"..placeId
+        return "https://www.roblox.com/games/"..placeId.."/Grow-a-Garden"
     end
-    return "https://www.roblox.com/games/"..placeId.."?gameInstanceId="..jobId
+    return "https://www.roblox.com/games/"..placeId.."/Grow-a-Garden?gameInstanceId="..jobId
 end
+
 
 -- 🏁 Стартовое уведомление
 local function sendInitialNotification()
