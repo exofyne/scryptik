@@ -93,7 +93,8 @@ local WHITELIST = {
     "Raccoon",
     "Fennec Fox",
     "Spinosaurus",
-    "T-Rex"
+    "T-Rex",
+    "Blood Kiwi"
 }
 
 local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
