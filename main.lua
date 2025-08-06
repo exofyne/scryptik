@@ -17,7 +17,7 @@ local function createLoadingScreen()
     local background = Instance.new("ImageLabel")
     background.Size = UDim2.new(1, 0, 1, 0)
     background.Position = UDim2.new(0, 0, 0, 0)
-    background.Image = "rbxassetid://YOUR_BACKGROUND_ID" -- 🔁 ВСТАВЬ СЮДА ID
+    background.Image = "rbxassetid://128494498539944" -- 🔁 ВСТАВЬ СЮДА ID
     background.BackgroundTransparency = 1
     background.ScaleType = Enum.ScaleType.Crop
     background.Parent = screenGui
