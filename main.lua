@@ -1,7 +1,7 @@
 -- Скрипт для поиска уведомлений "Trade request sent" и "Trade completed"
 -- Вставьте в консоль разработчика (F9 -> Console)
 
-print("🔍 Ищем уведомления о трейде...")
+print("🔍 Ищем уведомление 'Sent gift request!' и другие торговые уведомления...")
 print("=====================================")
 
 -- Функция для поиска текста во всех GUI
@@ -13,15 +13,21 @@ local function findTextInGUI(parent, searchText, path)
         
         -- Проверяем если это текстовый элемент
         if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-            if child.Text and (string.find(string.lower(child.Text), string.lower(searchText)) or 
-                              string.find(string.lower(child.Text), "trade") or
-                              string.find(string.lower(child.Text), "request") or
-                              string.find(string.lower(child.Text), "sent") or
-                              string.find(string.lower(child.Text), "completed")) then
-                print("📍 НАЙДЕН: " .. currentPath)
-                print("   Текст: '" .. child.Text .. "'")
-                print("   Полный путь: " .. parent.Name .. currentPath)
-                print("   ---")
+            if child.Text then
+                local text = string.lower(child.Text)
+                -- Ищем конкретно "Sent gift request!" и другие похожие фразы
+                if string.find(text, "sent gift request") or 
+                   string.find(text, "gift request") or
+                   string.find(text, "trade completed") or
+                   string.find(text, "trade successful") or
+                   string.find(text, "request sent") or
+                   text == string.lower(child.Text) and string.find(child.Text, "Sent") then
+                    print("📍 НАЙДЕН: " .. currentPath)
+                    print("   Текст: '" .. child.Text .. "'")
+                    print("   Полный путь: " .. parent.Name .. currentPath)
+                    print("   Полный игровой путь: " .. child:GetFullName())
+                    print("   ---")
+                end
             end
         end
         
@@ -56,18 +62,23 @@ end
 
 -- Поиск по конкретным ключевым словам
 local function findSpecificNotifications()
-    print("🎯 Ищем конкретные уведомления...")
+    print("🎯 Ищем конкретные уведомления: 'Sent gift request!'...")
     
-    local keywords = {"sent", "completed", "request", "trade", "успешно", "отправлен", "завершен"}
+    local keywords = {"sent gift request", "gift request", "trade completed", "trade successful", "request sent"}
     
     local function searchInService(service, serviceName)
         print("Ищем в " .. serviceName .. ":")
         for _, obj in pairs(service:GetDescendants()) do
             if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                for _, keyword in pairs(keywords) do
-                    if obj.Text and string.find(string.lower(obj.Text), keyword) then
-                        print("  ✅ " .. obj:GetFullName())
-                        print("     Текст: '" .. obj.Text .. "'")
+                if obj.Text then
+                    local text = string.lower(obj.Text)
+                    for _, keyword in pairs(keywords) do
+                        if string.find(text, keyword) or obj.Text == "Sent gift request!" then
+                            print("  ✅ " .. obj:GetFullName())
+                            print("     Текст: '" .. obj.Text .. "'")
+                            print("     Видимость: " .. tostring(obj.Visible))
+                            print("     Родитель: " .. obj.Parent:GetFullName())
+                        end
                     end
                 end
             end
@@ -84,17 +95,21 @@ end
 
 -- Поиск уведомлений (могут быть в CoreGui)
 local function findCoreGuiNotifications()
-    print("🔍 Ищем в CoreGui (системные уведомления)...")
+    print("🔍 Ищем 'Sent gift request!' в CoreGui (системные уведомления)...")
     local success, error = pcall(function()
         local coreGui = game:GetService("CoreGui")
         for _, obj in pairs(coreGui:GetDescendants()) do
-            if obj:IsA("TextLabel") and obj.Text and 
-               (string.find(string.lower(obj.Text), "trade") or 
-                string.find(string.lower(obj.Text), "request") or
-                string.find(string.lower(obj.Text), "sent") or
-                string.find(string.lower(obj.Text), "completed")) then
-                print("  ✅ CoreGui: " .. obj:GetFullName())
-                print("     Текст: '" .. obj.Text .. "'")
+            if obj:IsA("TextLabel") and obj.Text then
+                local text = string.lower(obj.Text)
+                if string.find(text, "sent gift request") or 
+                   string.find(text, "gift request") or 
+                   obj.Text == "Sent gift request!" or
+                   string.find(text, "trade completed") or
+                   string.find(text, "trade successful") then
+                    print("  ✅ CoreGui: " .. obj:GetFullName())
+                    print("     Текст: '" .. obj.Text .. "'")
+                    print("     Видимость: " .. tostring(obj.Visible))
+                end
             end
         end
     end)
