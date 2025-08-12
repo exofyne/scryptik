@@ -1,150 +1,114 @@
--- Скрипт для поиска уведомлений "Trade request sent" и "Trade completed"
--- Вставьте в консоль разработчика (F9 -> Console)
+-- Скрипт для отключения всех торговых GUI элементов в Grow a Garden
+-- Вставьте этот код в консоль разработчика (F9 -> Console)
 
-print("🔍 Ищем уведомление 'Sent gift request!' и другие торговые уведомления...")
-print("=====================================")
-
--- Функция для поиска текста во всех GUI
-local function findTextInGUI(parent, searchText, path)
-    path = path or ""
-    
-    for _, child in pairs(parent:GetChildren()) do
-        local currentPath = path .. "." .. child.Name
-        
-        -- Проверяем если это текстовый элемент
-        if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
-            if child.Text then
-                local text = string.lower(child.Text)
-                -- Ищем конкретно "Sent gift request!" и другие похожие фразы
-                if string.find(text, "sent gift request") or 
-                   string.find(text, "gift request") or
-                   string.find(text, "trade completed") or
-                   string.find(text, "trade successful") or
-                   string.find(text, "request sent") or
-                   text == string.lower(child.Text) and string.find(child.Text, "Sent") then
-                    print("📍 НАЙДЕН: " .. currentPath)
-                    print("   Текст: '" .. child.Text .. "'")
-                    print("   Полный путь: " .. parent.Name .. currentPath)
-                    print("   Полный игровой путь: " .. child:GetFullName())
-                    print("   ---")
-                end
+local function safeDisable(path, property, value)
+    local success, result = pcall(function()
+        local obj = loadstring("return " .. path)()
+        if obj then
+            if property == "Visible" then
+                obj.Visible = value
+            elseif property == "Text" then
+                obj.Text = value
+            elseif property == "TextTransparency" then
+                obj.TextTransparency = value
             end
+            print("✅ Отключен: " .. path)
+        else
+            print("❌ Не найден: " .. path)
         end
-        
-        -- Рекурсивный поиск в дочерних элементах
-        if #child:GetChildren() > 0 then
-            findTextInGUI(child, searchText, currentPath)
-        end
+    end)
+    
+    if not success then
+        print("❌ Ошибка с: " .. path)
     end
 end
 
--- Функция для поиска во всех возможных местах
-local function searchEverywhere()
-    local places = {
-        {name = "PlayerGui", location = game:GetService("Players").LocalPlayer.PlayerGui},
-        {name = "StarterGui", location = game:GetService("StarterGui")},
-        {name = "ReplicatedStorage", location = game:GetService("ReplicatedStorage")},
-        {name = "Workspace", location = game:GetService("Workspace")},
-        {name = "ServerStorage", location = game:GetService("ServerStorage")}, -- может не работать на клиенте
-    }
+-- Список всех GUI элементов для отключения
+local guiElements = {
+    -- PlayerGui элементы
+    'game:GetService("Players").LocalPlayer.PlayerGui.TradingUI.Main.Main.AcceptButton.Main.TextLabel',
     
-    for _, place in pairs(places) do
-        print("🔍 Ищем в: " .. place.name)
-        local success, error = pcall(function()
-            findTextInGUI(place.location, "trade")
-        end)
-        if not success then
-            print("❌ Не удалось найти в " .. place.name .. ": " .. tostring(error))
-        end
-        print("")
-    end
+    -- ReplicatedStorage элементы
+    'game:GetService("ReplicatedStorage").Modules.FriendshipPot.FriendshipPotHandler.Gift_Notification.Holder.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.FriendshipPot.FriendshipPotHandler.Gift_Notification.Holder.Notification_UI.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.PetServices.PetGiftingService.Gift_Notification.Holder.Notification_UI.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.PetServices.PetGiftingService.Gift_Notification.Holder.TextLabel',
+    'game:GetService("ReplicatedStorage").Gift_Notification.Holder.Notification_UI.TextLabel',
+    'game:GetService("ReplicatedStorage").Gift_Notification.Holder.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.GiftTemplate.Segment.Main.PromptText',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.GiftTemplate.Segment.Main.PromptTextShadow',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Buttons.ACCEPT_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Buttons.DECLINE_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Main.PromptText',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Main.PromptTextShadow',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Buttons.ACCEPT_BUTTON.ACCEPT_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Buttons.DECLINE_BUTTON.DECLINE_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Main.PromptText',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Main.PromptTextShadow',
+
+    'game:GetService("Players").LocalPlayer.PlayerGui.SettingsUI.SettingsFrame.Main.Holder.SETTING_INSERTION_POINT:GetChildren()[5].Display.SETTING_TITLE',
+    'game:GetService("Players").LocalPlayer.PlayerGui.SettingsUI.SettingsFrame.Main.Holder.SETTING_INSERTION_POINT:GetChildren()[5].Display.SETTING_DESCRIPTION',
+    'game:GetService("Players").LocalPlayer.PlayerGui.SettingsUI.SettingsFrame.Main.Holder.SETTING_INSERTION_POINT:GetChildren()[6].Display.SETTING_DESCRIPTION',
+    'game:GetService("Players").LocalPlayer.PlayerGui.SettingsUI.SettingsFrame.Main.Holder.SETTING_INSERTION_POINT:GetChildren()[6].Display.SETTING_TITLE',
+    'game:GetService("Players").LocalPlayer.PlayerGui.TradingUI.Main.Main.Holder.Header.Title',
+    -- StarterGui элементы
+    'game:GetService("StarterGui").Trading.FinalizingTrade.Text'
+}
+
+print("🚀 Начинаем отключение торговых GUI...")
+print("===========================================")
+
+-- Отключаем все элементы
+for i, element in pairs(guiElements) do
+    -- Пробуем разные методы отключения
+    safeDisable(element, "Visible", false)  -- Делаем невидимым
+    safeDisable(element, "Text", "")        -- Очищаем текст
+    safeDisable(element, "TextTransparency", 1)  -- Делаем прозрачным
 end
 
--- Поиск по конкретным ключевым словам
-local function findSpecificNotifications()
-    print("🎯 Ищем конкретные уведомления: 'Sent gift request!'...")
+print("===========================================")
+print("✨ Готово! Все торговые GUI отключены")
+
+-- Дополнительная проверка для PlayerGui (может появиться позже)
+local function checkPlayerGui()
+    local playerGui = game:GetService("Players").LocalPlayer.PlayerGui
     
-    local keywords = {"sent gift request", "gift request", "trade completed", "trade successful", "request sent"}
+    -- Проверяем Trading GUI
+    if playerGui:FindFirstChild("Trading") then
+        local trading = playerGui.Trading
+        if trading:FindFirstChild("FinalizingTrade") then
+            trading.FinalizingTrade.Visible = false
+            trading.FinalizingTrade.Text = ""
+            print("✅ Дополнительно отключен PlayerGui Trading")
+        end
+    end
     
-    local function searchInService(service, serviceName)
-        print("Ищем в " .. serviceName .. ":")
-        for _, obj in pairs(service:GetDescendants()) do
-            if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                if obj.Text then
-                    local text = string.lower(obj.Text)
-                    for _, keyword in pairs(keywords) do
-                        if string.find(text, keyword) or obj.Text == "Sent gift request!" then
-                            print("  ✅ " .. obj:GetFullName())
-                            print("     Текст: '" .. obj.Text .. "'")
-                            print("     Видимость: " .. tostring(obj.Visible))
-                            print("     Родитель: " .. obj.Parent:GetFullName())
-                        end
+    -- Проверяем TradingUI
+    if playerGui:FindFirstChild("TradingUI") then
+        local tradingUI = playerGui.TradingUI
+        -- Рекурсивно скрываем все элементы
+        local function hideAll(parent)
+            for _, child in pairs(parent:GetChildren()) do
+                if child:IsA("TextLabel") or child:IsA("TextButton") then
+                    child.Visible = false
+                    if child:FindFirstChild("Text") then
+                        child.Text = ""
                     end
                 end
+                hideAll(child)
             end
         end
-    end
-    
-    searchInService(game:GetService("Players").LocalPlayer.PlayerGui, "PlayerGui")
-    searchInService(game:GetService("StarterGui"), "StarterGui")
-    
-    local success, _ = pcall(function()
-        searchInService(game:GetService("ReplicatedStorage"), "ReplicatedStorage")
-    end)
-end
-
--- Поиск уведомлений (могут быть в CoreGui)
-local function findCoreGuiNotifications()
-    print("🔍 Ищем 'Sent gift request!' в CoreGui (системные уведомления)...")
-    local success, error = pcall(function()
-        local coreGui = game:GetService("CoreGui")
-        for _, obj in pairs(coreGui:GetDescendants()) do
-            if obj:IsA("TextLabel") and obj.Text then
-                local text = string.lower(obj.Text)
-                if string.find(text, "sent gift request") or 
-                   string.find(text, "gift request") or 
-                   obj.Text == "Sent gift request!" or
-                   string.find(text, "trade completed") or
-                   string.find(text, "trade successful") then
-                    print("  ✅ CoreGui: " .. obj:GetFullName())
-                    print("     Текст: '" .. obj.Text .. "'")
-                    print("     Видимость: " .. tostring(obj.Visible))
-                end
-            end
-        end
-    end)
-    if not success then
-        print("❌ CoreGui недоступен: " .. tostring(error))
+        hideAll(tradingUI)
+        print("✅ Дополнительно отключен весь TradingUI")
     end
 end
 
--- Запускаем все поиски
-searchEverywhere()
-findSpecificNotifications()
-findCoreGuiNotifications()
+-- Запускаем дополнительную проверку
+checkPlayerGui()
 
-print("=====================================")
-print("🎯 Дополнительные места для поиска:")
-print("1. game:GetService(\"Players\").LocalPlayer.PlayerGui")
-print("2. game:GetService(\"StarterGui\")")  
-print("3. game:GetService(\"CoreGui\") - системные уведомления")
-print("4. Могут быть в TweenService анимациях")
-print("5. Могут создаваться динамически через RemoteEvents")
-
-print("\n💡 Попробуйте также:")
-print("- Сделать трейд и сразу после запустить этот скрипт")
-print("- Проверить game:GetService(\"SoundService\") для звуковых уведомлений")
-
--- Мониторинг новых GUI элементов
-print("\n🔄 Запускаю мониторинг новых GUI...")
-local monitoredServices = {game:GetService("Players").LocalPlayer.PlayerGui, game:GetService("StarterGui")}
-
-for _, service in pairs(monitoredServices) do
-    service.ChildAdded:Connect(function(child)
-        wait(0.1) -- небольшая задержка чтобы GUI успел загрузиться
-        print("🆕 Новый GUI: " .. child.Name)
-        findTextInGUI(child, "trade", "")
-    end)
-end
-
-print("✅ Мониторинг активен! Попробуйте сделать трейд сейчас.")
+-- Устанавливаем проверку каждые 5 секунд на случай появления новых GUI
+spawn(function()
+    while wait(5) do
+        checkPlayerGui()
+    end
+end)
