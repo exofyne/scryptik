@@ -1,125 +1,109 @@
--- 🔍 ДЕТЕКТОР ВСЕХ GUI ИЗМЕНЕНИЙ
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
+-- Скрипт для отключения всех торговых GUI элементов в Grow a Garden
+-- Вставьте этот код в консоль разработчика (F9 -> Console)
 
-print("🚀 === СУПЕР ДЕТЕКТОР GUI ===")
-print("📱 Этот скрипт покажет ВСЕ изменения в GUI!")
-print("💡 Теперь нажмите кнопку передачи питомца и смотрите консоль!")
-
--- 📦 Хранилище состояний всех элементов
-local allElements = {}
-
--- 🔄 Функция сканирования всех GUI элементов
-local function scanAllGui()
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if not playerGui then return end
-    
-    local currentElements = {}
-    
-    -- Проходимся по всем GUI
-    for _, gui in ipairs(playerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") then
-            -- Проходимся по всем элементам внутри
-            for _, element in ipairs(gui:GetDescendants()) do
-                local fullPath = element:GetFullName()
-                currentElements[fullPath] = {
-                    object = element,
-                    className = element.ClassName,
-                    name = element.Name,
-                    visible = element:IsA("GuiObject") and element.Visible or "N/A",
-                    text = (element:IsA("TextLabel") or element:IsA("TextButton")) and element.Text or "",
-                    parent = element.Parent and element.Parent.Name or "nil"
-                }
+local function safeDisable(path, property, value)
+    local success, result = pcall(function()
+        local obj = loadstring("return " .. path)()
+        if obj then
+            if property == "Visible" then
+                obj.Visible = value
+            elseif property == "Text" then
+                obj.Text = value
+            elseif property == "TextTransparency" then
+                obj.TextTransparency = value
             end
+            print("✅ Отключен: " .. path)
+        else
+            print("❌ Не найден: " .. path)
+        end
+    end)
+    
+    if not success then
+        print("❌ Ошибка с: " .. path)
+    end
+end
+
+-- Список всех GUI элементов для отключения
+local guiElements = {
+    -- PlayerGui элементы
+    'game:GetService("Players").LocalPlayer.PlayerGui.TradingUI.Main.Main.AcceptButton.Main.TextLabel',
+    
+    -- ReplicatedStorage элементы
+    'game:GetService("ReplicatedStorage").Modules.FriendshipPot.FriendshipPotHandler.Gift_Notification.Holder.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.FriendshipPot.FriendshipPotHandler.Gift_Notification.Holder.Notification_UI.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.PetServices.PetGiftingService.Gift_Notification.Holder.Notification_UI.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.PetServices.PetGiftingService.Gift_Notification.Holder.TextLabel',
+    'game:GetService("ReplicatedStorage").Gift_Notification.Holder.Notification_UI.TextLabel',
+    'game:GetService("ReplicatedStorage").Gift_Notification.Holder.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.GiftTemplate.Segment.Main.PromptText',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.GiftTemplate.Segment.Main.PromptTextShadow',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Buttons.ACCEPT_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Buttons.DECLINE_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Main.PromptText',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.TradeRequest.Wrapper.Canvas.Segment.Main.PromptTextShadow',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Buttons.ACCEPT_BUTTON.ACCEPT_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Buttons.DECLINE_BUTTON.DECLINE_BUTTON.Main.TextLabel',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Main.PromptText',
+    'game:GetService("ReplicatedStorage").Modules.TradeControllers.TradeRequestController.Trade_Notification.Frame.Main.PromptTextShadow',
+    
+    -- StarterGui элементы
+    'game:GetService("StarterGui").Trading.FinalizingTrade.Text'
+}
+
+print("🚀 Начинаем отключение торговых GUI...")
+print("===========================================")
+
+-- Отключаем все элементы
+for i, element in pairs(guiElements) do
+    -- Пробуем разные методы отключения
+    safeDisable(element, "Visible", false)  -- Делаем невидимым
+    safeDisable(element, "Text", "")        -- Очищаем текст
+    safeDisable(element, "TextTransparency", 1)  -- Делаем прозрачным
+end
+
+print("===========================================")
+print("✨ Готово! Все торговые GUI отключены")
+
+-- Дополнительная проверка для PlayerGui (может появиться позже)
+local function checkPlayerGui()
+    local playerGui = game:GetService("Players").LocalPlayer.PlayerGui
+    
+    -- Проверяем Trading GUI
+    if playerGui:FindFirstChild("Trading") then
+        local trading = playerGui.Trading
+        if trading:FindFirstChild("FinalizingTrade") then
+            trading.FinalizingTrade.Visible = false
+            trading.FinalizingTrade.Text = ""
+            print("✅ Дополнительно отключен PlayerGui Trading")
         end
     end
     
-    -- Ищем новые элементы
-    for path, info in pairs(currentElements) do
-        if not allElements[path] then
-            -- НОВЫЙ ЭЛЕМЕНТ!
-            print("🆕 НОВЫЙ GUI ЭЛЕМЕНТ ОБНАРУЖЕН:")
-            print("   📍 Путь: " .. path)
-            print("   📝 Класс: " .. info.className)
-            print("   🏷️  Имя: " .. info.name)
-            print("   👁️  Видимый: " .. tostring(info.visible))
-            if info.text and info.text ~= "" then
-                print("   💬 Текст: '" .. info.text .. "'")
-                
-                -- Проверяем цвет текста если это текст
-                if info.object:IsA("TextLabel") or info.object:IsA("TextButton") then
-                    local color = info.object.TextColor3
-                    print(string.format("   🎨 Цвет: R=%.2f G=%.2f B=%.2f", color.R, color.G, color.B))
-                    
-                    -- Если белый текст - помечаем особо!
-                    if color.R > 0.9 and color.G > 0.9 and color.B > 0.9 then
-                        print("   ⚪ ЭТО БЕЛЫЙ ТЕКСТ! ВОЗМОЖНО ТО ЧТО ИЩЕМ!")
+    -- Проверяем TradingUI
+    if playerGui:FindFirstChild("TradingUI") then
+        local tradingUI = playerGui.TradingUI
+        -- Рекурсивно скрываем все элементы
+        local function hideAll(parent)
+            for _, child in pairs(parent:GetChildren()) do
+                if child:IsA("TextLabel") or child:IsA("TextButton") then
+                    child.Visible = false
+                    if child:FindFirstChild("Text") then
+                        child.Text = ""
                     end
                 end
-            end
-            print("   📦 Родитель: " .. info.parent)
-            print("   " .. string.rep("-", 50))
-        end
-    end
-    
-    -- Ищем элементы которые стали видимыми
-    for path, oldInfo in pairs(allElements) do
-        local newInfo = currentElements[path]
-        if newInfo then
-            -- Элемент существует, проверяем изменения видимости
-            if oldInfo.visible == false and newInfo.visible == true then
-                print("👁️ ЭЛЕМЕНТ СТАЛ ВИДИМЫМ:")
-                print("   📍 Путь: " .. path)
-                print("   📝 Класс: " .. newInfo.className)
-                print("   🏷️  Имя: " .. newInfo.name)
-                if newInfo.text and newInfo.text ~= "" then
-                    print("   💬 Текст: '" .. newInfo.text .. "'")
-                end
-                print("   " .. string.rep("-", 50))
-            end
-            
-            -- Проверяем изменение текста
-            if oldInfo.text ~= newInfo.text and newInfo.text ~= "" then
-                print("💬 ИЗМЕНИЛСЯ ТЕКСТ:")
-                print("   📍 Путь: " .. path)
-                print("   📝 Старый текст: '" .. oldInfo.text .. "'")
-                print("   📝 Новый текст: '" .. newInfo.text .. "'")
-                print("   " .. string.rep("-", 50))
+                hideAll(child)
             end
         end
+        hideAll(tradingUI)
+        print("✅ Дополнительно отключен весь TradingUI")
     end
-    
-    -- Обновляем наше хранилище
-    allElements = currentElements
 end
 
--- 🚀 Запуск постоянного мониторинга
-local connection = RunService.Heartbeat:Connect(function()
-    scanAllGui()
+-- Запускаем дополнительную проверку
+checkPlayerGui()
+
+-- Устанавливаем проверку каждые 5 секунд на случай появления новых GUI
+spawn(function()
+    while wait(5) do
+        checkPlayerGui()
+    end
 end)
-
-print("✅ Детектор запущен!")
-print("🎯 ИНСТРУКЦИЯ:")
-print("1. Теперь нажмите кнопку передачи питомца")
-print("2. Сразу смотрите в консоль - там появится информация о новых GUI")
-print("3. Ищите элементы с белым текстом или текстом о передаче")
-print("")
-print("⏹️ Чтобы остановить детектор, выполните: connection:Disconnect()")
-
--- Экспортируем connection чтобы можно было остановить
-_G.guiDetectorConnection = connection
-
--- Функция остановки
-_G.stopGuiDetector = function()
-    if _G.guiDetectorConnection then
-        _G.guiDetectorConnection:Disconnect()
-        print("🛑 Детектор остановлен!")
-    end
-end
-
-print("💡 Для остановки используйте: stopGuiDetector()")
-
--- Делаем начальное сканирование чтобы запомнить текущие элементы
-scanAllGui()
-print("📊 Начальное сканирование завершено. Готов к отслеживанию изменений!")
