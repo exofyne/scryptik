@@ -1,82 +1,110 @@
--- Скрипт для получения РАБОЧИХ ссылок приглашения Roblox
+-- Скрипт для автоматического вызова системы приглашений и извлечения ссылки
 -- Инжектируется через Delta X или другой инжектор
 
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SocialService = game:GetService("SocialService")
-local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
+local SocialService = game:GetService("SocialService")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Функция для поиска и активации системы приглашений игры
-local function findInviteSystem()
-    -- Ищем RemoteEvents/RemoteFunctions связанные с приглашениями
-    local inviteRemotes = {}
-    
-    -- Поиск в ReplicatedStorage
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            local name = obj.Name:lower()
-            if name:find("invite") or name:find("share") or name:find("social") or 
-               name:find("party") or name:find("join") or name:find("link") then
-                table.insert(inviteRemotes, obj)
+-- Переменная для хранения найденной ссылки
+local foundInviteLink = nil
+
+-- Функция для мониторинга изменений в GUI
+local function monitorGuiForInviteLink()
+    local function scanForLinks(obj)
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            local text = obj.Text
+            -- Ищем ссылки типа share с ExperienceInvite
+            if text:find("roblox%.com/share%?code=") and text:find("type=ExperienceInvite") then
+                foundInviteLink = text
+                print("🎯 НАЙДЕНА ССЫЛКА ПРИГЛАШЕНИЯ: " .. foundInviteLink)
+                return true
+            end
+            -- Также ищем другие форматы ссылок
+            if text:find("roblox%.com") and (text:find("invite") or text:find("share")) then
+                foundInviteLink = text
+                print("🎯 НАЙДЕНА ССЫЛКА: " .. foundInviteLink)
+                return true
             end
         end
+        return false
     end
     
-    -- Поиск в StarterPlayer
-    pcall(function()
-        for _, obj in pairs(game.StarterPlayer:GetDescendants()) do
-            if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-                local name = obj.Name:lower()
-                if name:find("invite") or name:find("share") then
-                    table.insert(inviteRemotes, obj)
+    -- Сканируем весь PlayerGui
+    local function scanAllGui()
+        for _, gui in pairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                for _, obj in pairs(gui:GetDescendants()) do
+                    if scanForLinks(obj) then
+                        return true
+                    end
                 end
             end
         end
+        return false
+    end
+    
+    -- Мониторим новые объекты
+    PlayerGui.DescendantAdded:Connect(function(obj)
+        wait(0.1) -- Даем время объекту загрузиться
+        scanForLinks(obj)
     end)
     
-    return inviteRemotes
-end
-
--- Функция для попытки создать реальное приглашение через игровые системы
-local function createRealInvite()
-    local inviteRemotes = findInviteSystem()
-    local inviteLink = nil
-    
-    -- Пробуем каждый найденный remote
-    for _, remote in pairs(inviteRemotes) do
-        pcall(function()
-            if remote:IsA("RemoteFunction") then
-                local result = remote:InvokeServer()
-                if type(result) == "string" and result:find("roblox.com") then
-                    inviteLink = result
+    -- Мониторим изменения текста
+    for _, gui in pairs(PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            for _, obj in pairs(gui:GetDescendants()) do
+                if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+                    obj:GetPropertyChangedSignal("Text"):Connect(function()
+                        scanForLinks(obj)
+                    end)
                 end
-            elseif remote:IsA("RemoteEvent") then
-                remote:FireServer("create_invite")
-                remote:FireServer("generate_link")
-                remote:FireServer({action = "invite", player = LocalPlayer})
             end
-        end)
-        
-        if inviteLink then break end
+        end
     end
     
-    return inviteLink
+    return scanAllGui()
 end
 
--- Функция для использования SocialService (официальный способ)
-local function useSocialService()
+-- Функция для перехвата HTTP запросов (экспериментальная)
+local function interceptHttpRequests()
+    local originalRequest = HttpService.RequestAsync
+    
+    HttpService.RequestAsync = function(self, requestOptions)
+        local result = originalRequest(self, requestOptions)
+        
+        -- Проверяем ответ на наличие ссылок приглашения
+        if result.Body and type(result.Body) == "string" then
+            if result.Body:find("share%?code=") and result.Body:find("ExperienceInvite") then
+                local link = result.Body:match("(https://[^%s\"']+share%?code=[^%s\"']+)")
+                if link then
+                    foundInviteLink = link
+                    print("🎯 ПЕРЕХВАЧЕНА ССЫЛКА ПРИГЛАШЕНИЯ: " .. foundInviteLink)
+                end
+            end
+        end
+        
+        return result
+    end
+end
+
+-- Функция для активации системы приглашений через SocialService
+local function activateSocialService()
+    print("🔄 Попытка активации SocialService...")
+    
     local success, canInvite = pcall(function()
         return SocialService:CanSendGameInviteAsync(LocalPlayer)
     end)
     
     if success and canInvite then
-        print("✅ SocialService доступен, активируем приглашения...")
+        print("✅ SocialService доступен!")
         
-        -- Пытаемся открыть окно приглашений
+        -- Активируем окно приглашений
         pcall(function()
             SocialService:PromptGameInvite(LocalPlayer)
         end)
@@ -87,34 +115,39 @@ local function useSocialService()
     return false
 end
 
--- Функция для использования встроенной системы Roblox
-local function useBuiltInInvite()
-    -- Пытаемся использовать встроенную команду
-    pcall(function()
-        GuiService:SetMenuIsOpen(true, "InviteFriends")
-    end)
+-- Функция для поиска и клика кнопок приглашения
+local function findAndClickInviteButtons()
+    print("🔄 Поиск кнопок приглашения...")
     
-    -- Альтернативный способ через StarterGui
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("PromptSendFriendRequest", LocalPlayer)
-    end)
+    local keywords = {
+        "invite", "приглас", "share", "поделить", "друзья", "friends",
+        "send", "отправить", "create", "создать", "link", "ссылка"
+    }
     
-    -- Проверяем наличие системы приглашений в GUI
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    
-    for _, gui in pairs(playerGui:GetChildren()) do
+    for _, gui in pairs(PlayerGui:GetChildren()) do
         if gui:IsA("ScreenGui") then
             for _, obj in pairs(gui:GetDescendants()) do
-                if obj:IsA("TextButton") and (
-                    obj.Text:lower():find("invite") or 
-                    obj.Text:lower():find("share") or
-                    obj.Text:lower():find("приглас")
-                ) then
-                    -- Нашли кнопку приглашения, кликаем
-                    pcall(function()
-                        firesignal(obj.MouseButton1Click)
-                    end)
-                    return true
+                if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+                    local text = obj.Name:lower()
+                    if obj:IsA("TextButton") then
+                        text = text .. " " .. obj.Text:lower()
+                    end
+                    
+                    for _, keyword in pairs(keywords) do
+                        if text:find(keyword) then
+                            print("🎯 Найдена кнопка: " .. obj.Name .. " (" .. (obj.Text or "ImageButton") .. ")")
+                            
+                            -- Кликаем кнопку
+                            pcall(function()
+                                firesignal(obj.MouseButton1Click)
+                            end)
+                            pcall(function()
+                                firesignal(obj.Activated)
+                            end)
+                            
+                            return true
+                        end
+                    end
                 end
             end
         end
@@ -123,166 +156,155 @@ local function useBuiltInInvite()
     return false
 end
 
--- Функция для создания TeleportData (альтернативный метод)
-local function createTeleportInvite()
-    local placeId = game.PlaceId
-    local jobId = game.JobId
+-- Функция для активации через GuiService
+local function activateGuiService()
+    print("🔄 Попытка активации через GuiService...")
     
-    if jobId and jobId ~= "" then
-        -- Создаем данные для телепорта
-        local teleportData = {
-            placeId = placeId,
-            jobId = jobId,
-            player = LocalPlayer.UserId,
-            timestamp = os.time()
-        }
-        
-        -- Пытаемся зарезервировать сервер
-        local success, reserveResult = pcall(function()
-            return TeleportService:ReserveServer(placeId)
+    local guiMethods = {
+        function() GuiService:SetMenuIsOpen(true, "InviteFriends") end,
+        function() GuiService:SetMenuIsOpen(true, "GameInvite") end,
+        function() GuiService:SetMenuIsOpen(true, "Social") end,
+        function() GuiService:SetMenuIsOpen(true, "ShareGame") end
+    }
+    
+    for i, method in ipairs(guiMethods) do
+        pcall(function()
+            method()
+            print("✅ Активирован метод GuiService #" .. i)
         end)
-        
-        if success then
-            -- Создаем ссылку с зарезервированным сервером
-            local inviteCode = HttpService:GenerateGUID(false):lower():gsub("-", "")
-            return string.format("https://www.roblox.com/share?code=%s&type=ExperienceInvite", inviteCode)
-        end
     end
-    
-    return nil
 end
 
--- Функция для отправки в чат
-local function sendToChat(message)
-    local methods = {
-        function()
-            local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-            if chatEvents then
-                local sayMessage = chatEvents:FindFirstChild("SayMessageRequest")
-                if sayMessage then
-                    sayMessage:FireServer(message, "All")
-                    return true
-                end
-            end
-            return false
+-- Функция для поиска через StarterGui
+local function activateStarterGui()
+    print("🔄 Попытка активации через StarterGui...")
+    
+    local starterGuiMethods = {
+        function() 
+            game:GetService("StarterGui"):SetCore("PromptGameInvite", {})
         end,
-        
         function()
-            game.Players:Chat(message)
-            return true
-        end,
-        
-        function()
-            local chatService = game:GetService("Chat")
-            if chatService then
-                chatService:Chat(LocalPlayer.Character, message, Enum.ChatColor.White)
-                return true
-            end
-            return false
+            game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
+                Text = "Активация системы приглашений...",
+                Color = Color3.new(0, 1, 0)
+            })
         end
     }
     
-    for _, method in ipairs(methods) do
-        local success, result = pcall(method)
-        if success and result then
-            return true
-        end
+    for i, method in ipairs(starterGuiMethods) do
+        pcall(method)
     end
-    
-    return false
 end
 
--- Основная функция получения ссылки
-local function getWorkingInviteLink()
-    print("🔍 Поиск рабочей системы приглашений...")
+-- Функция для эмуляции клавиш
+local function tryKeyboardShortcuts()
+    print("🔄 Попытка горячих клавиш...")
     
-    -- Метод 1: Реальные приглашения через игровые системы
-    local realInvite = createRealInvite()
-    if realInvite then
-        print("✅ Найдена реальная ссылка через игровую систему!")
-        return realInvite
+    local shortcuts = {
+        {Enum.KeyCode.Tab, Enum.KeyCode.I}, -- Tab+I
+        {Enum.KeyCode.LeftControl, Enum.KeyCode.I}, -- Ctrl+I
+        {Enum.KeyCode.LeftShift, Enum.KeyCode.F}, -- Shift+F
+    }
+    
+    for _, combo in ipairs(shortcuts) do
+        pcall(function()
+            for _, key in ipairs(combo) do
+                UserInputService:GetService("UserInputService"):SendKeyEvent(true, key, false, game)
+                wait(0.1)
+                UserInputService:GetService("UserInputService"):SendKeyEvent(false, key, false, game)
+            end
+        end)
+        wait(0.5)
     end
-    
-    -- Метод 2: SocialService
-    if useSocialService() then
-        print("✅ Активирована официальная система приглашений!")
-        return "Система приглашений активирована! Проверьте интерфейс игры."
-    end
-    
-    -- Метод 3: Встроенная система
-    if useBuiltInInvite() then
-        print("✅ Активирована встроенная система приглашений!")
-        return "Встроенная система приглашений активирована!"
-    end
-    
-    -- Метод 4: TeleportData
-    local teleportInvite = createTeleportInvite()
-    if teleportInvite then
-        print("✅ Создана ссылка через TeleportService!")
-        return teleportInvite
-    end
-    
-    -- Fallback: Прямая ссылка на сервер
-    local placeId = game.PlaceId
-    local jobId = game.JobId
-    
-    if jobId and jobId ~= "" then
-        local directLink = string.format("https://www.roblox.com/games/%d?jobId=%s", placeId, jobId)
-        print("⚠️ Создана прямая ссылка на сервер (может не работать)")
-        return directLink
-    end
-    
-    return string.format("https://www.roblox.com/games/%d", placeId)
+end
+
+-- Функция отправки в чат
+local function sendToChat(message)
+    pcall(function()
+        local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+        if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
+            chatEvents.SayMessageRequest:FireServer(message, "All")
+        end
+    end)
 end
 
 -- Главная функция
-local function main()
-    wait(5) -- Ждем полной загрузки всех систем
+local function generateInviteLink()
+    foundInviteLink = nil
     
-    local inviteLink = getWorkingInviteLink()
+    print("🚀 Запуск автоматического получения ссылки приглашения...")
     
-    if inviteLink:find("Система") or inviteLink:find("активирована") then
-        -- Система активирована, не отправляем в чат
-        print("💡 " .. inviteLink)
-    else
-        -- Отправляем ссылку в чат
-        local message = "🎮 Присоединяйтесь: " .. inviteLink
-        sendToChat(message)
+    -- Начинаем мониторинг GUI
+    monitorGuiForInviteLink()
+    
+    -- Перехватываем HTTP запросы
+    interceptHttpRequests()
+    
+    -- Пробуем все методы активации
+    activateSocialService()
+    wait(1)
+    
+    activateGuiService()
+    wait(1)
+    
+    activateStarterGui()
+    wait(1)
+    
+    findAndClickInviteButtons()
+    wait(1)
+    
+    tryKeyboardShortcuts()
+    
+    -- Ждем результата
+    local attempts = 0
+    while not foundInviteLink and attempts < 30 do
+        wait(1)
+        attempts = attempts + 1
+        print("⏳ Ожидание ссылки... (" .. attempts .. "/30)")
+        
+        -- Повторно сканируем GUI
+        monitorGuiForInviteLink()
+    end
+    
+    if foundInviteLink then
+        print("🎉 УСПЕХ! Получена ссылка: " .. foundInviteLink)
+        
+        -- Отправляем в чат
+        sendToChat("🎮 Приглашение: " .. foundInviteLink)
         
         -- Копируем в буфер обмена
         pcall(function()
-            setclipboard(inviteLink)
+            setclipboard(foundInviteLink)
             print("📋 Ссылка скопирована в буфер обмена!")
         end)
+        
+        return foundInviteLink
+    else
+        print("❌ Не удалось получить ссылку приглашения")
+        print("💡 Попробуйте активировать систему приглашений вручную")
+        return nil
     end
-    
-    print("🔗 Результат: " .. inviteLink)
 end
 
--- Глобальная функция
-_G.getInvite = function()
-    local link = getWorkingInviteLink()
-    print("🔗 " .. link)
-    pcall(function()
-        setclipboard(link)
-    end)
-    return link
-end
+-- Глобальные функции
+_G.getInviteLink = generateInviteLink
+_G.foundLink = function() return foundInviteLink end
 
 -- Команды чата
-if LocalPlayer then
-    LocalPlayer.Chatted:Connect(function(message)
-        local msg = message:lower()
-        if msg == "/getinvite" or msg == "/реалинвайт" then
-            _G.getInvite()
-        end
-    end)
-end
+LocalPlayer.Chatted:Connect(function(message)
+    local msg = message:lower()
+    if msg == "/getlink" or msg == "/автоинвайт" or msg == "/получитьссылку" then
+        spawn(generateInviteLink)
+    end
+end)
 
 -- Автозапуск
-spawn(main)
+spawn(function()
+    wait(5)
+    generateInviteLink()
+end)
 
-print("✅ Скрипт поиска рабочих приглашений загружен!")
-print("💡 Команды: /getinvite, /реалинвайт")
-print("💡 Функция: _G.getInvite()")
-print("🔍 Скрипт будет искать реальные системы приглашений в игре...")
+print("✅ Автоматический извлекатель ссылок приглашения загружен!")
+print("💡 Команды: /getlink, /автоинвайт, /получитьссылку")
+print("💡 Функция: _G.getInviteLink()")
+print("🔍 Скрипт автоматически найдет и извлечет реальную ссылку приглашения!")
