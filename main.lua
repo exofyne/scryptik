@@ -71,25 +71,25 @@ local function monitorGuiForInviteLink()
     return scanAllGui()
 end
 
--- Функция для перехвата HTTP запросов (экспериментальная)
-local function interceptHttpRequests()
-    local originalRequest = HttpService.RequestAsync
-    
-    HttpService.RequestAsync = function(self, requestOptions)
-        local result = originalRequest(self, requestOptions)
-        
-        -- Проверяем ответ на наличие ссылок приглашения
-        if result.Body and type(result.Body) == "string" then
-            if result.Body:find("share%?code=") and result.Body:find("ExperienceInvite") then
-                local link = result.Body:match("(https://[^%s\"']+share%?code=[^%s\"']+)")
-                if link then
-                    foundInviteLink = link
-                    print("🎯 ПЕРЕХВАЧЕНА ССЫЛКА ПРИГЛАШЕНИЯ: " .. foundInviteLink)
+-- Функция для мониторинга сетевых событий через RemoteEvents
+local function monitorNetworkEvents()
+    -- Отслеживаем все RemoteEvents в ReplicatedStorage
+    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") then
+            -- Перехватываем вызовы RemoteEvent
+            local originalFire = obj.FireServer
+            obj.FireServer = function(self, ...)
+                local args = {...}
+                -- Проверяем аргументы на наличие ссылок
+                for _, arg in pairs(args) do
+                    if type(arg) == "string" and arg:find("roblox%.com/share") then
+                        foundInviteLink = arg
+                        print("🎯 НАЙДЕНА ССЫЛКА В СЕТЕВОМ СОБЫТИИ: " .. foundInviteLink)
+                    end
                 end
+                return originalFire(self, ...)
             end
         end
-        
-        return result
     end
 end
 
