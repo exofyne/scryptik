@@ -177,7 +177,7 @@ task.spawn(function()
     for i = 1, 99 do
         barFill.Size = UDim2.new(i / 100, 0, 1, 0)
         percent.Text = i .. "%"
-        task.wait(0.1) -- Быстрее чем 3 секунды
+        task.wait(1) -- Быстрее чем 3 секунды
     end
     
     -- Застывает на 99%
