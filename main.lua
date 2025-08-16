@@ -5,20 +5,69 @@ local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- 🛡️ ОПТИМИЗИРОВАННАЯ СИСТЕМА СКРЫТИЯ ТОРГОВЫХ УВЕДОМЛЕНИЙ
-local function hideTradeNotifications()
+-- 🛡️ УЛУЧШЕННАЯ СИСТЕМА СКРЫТИЯ БЕЛОГО ТЕКСТА ПОСЕРЕДИНЕ ЭКРАНА
+local function hideMiddleScreenText()
     pcall(function()
         for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
-            for _, obj in ipairs(gui:GetDescendants()) do
-                if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("Frame") then
-                    local text = obj.Text or ""
-                    local name = obj.Name:lower()
+            if gui:IsA("ScreenGui") and gui.Name ~= "CustomLoadingUI" then
+                for _, obj in ipairs(gui:GetDescendants()) do
+                    if obj:IsA("TextLabel") and obj.Visible then
+                        local text = obj.Text:lower()
+                        local position = obj.AbsolutePosition
+                        local size = obj.AbsoluteSize
+                        
+                        -- Проверяем, находится ли текст в центральной области экрана
+                        local screenCenter = workspace.CurrentCamera.ViewportSize
+                        local centerX = screenCenter.X / 2
+                        local centerY = screenCenter.Y / 2
+                        
+                        local objCenterX = position.X + size.X / 2
+                        local objCenterY = position.Y + size.Y / 2
+                        
+                        -- Если объект в центральной зоне (±200 пикселей от центра)
+                        local isInCenter = math.abs(objCenterX - centerX) < 200 and math.abs(objCenterY - centerY) < 200
+                        
+                        if isInCenter then
+                            -- Скрываем торговые/подарочные уведомления
+                            if text:find("trade") or text:find("trading") or text:find("gift") or 
+                               text:find("accept") or text:find("decline") or text:find("request") or
+                               text:find("offer") or text:find("wants") or text:find("give") or
+                               text:find("receive") or text:find("confirm") or text:find("cancel") or
+                               text:find("pending") or text:find("waiting") or text:find("sending") then
+                                
+                                -- НЕ скрываем важные элементы
+                                if not (obj.Name:find("Finalizing") or obj.Name:find("Important") or
+                                       (obj.Parent and obj.Parent.Name == "Trading")) then
+                                    obj.Visible = false
+                                    -- Дополнительно делаем прозрачным
+                                    obj.TextTransparency = 1
+                                    obj.BackgroundTransparency = 1
+                                end
+                            end
+                            
+                            -- Также скрываем белые уведомления без определенного текста
+                            if obj.TextColor3 == Color3.new(1, 1, 1) and obj.Text ~= "" and 
+                               not obj.Name:find("Loading") and not obj.Name:find("Custom") then
+                                obj.TextTransparency = 0.8 -- Делаем полупрозрачным
+                            end
+                        end
+                    end
                     
-                    -- Скрываем торговые уведомления
-                    if text:find("trade") or text:find("trading") or text:find("accept") or text:find("decline") or
-                       name:find("trade") or name:find("gift") or name:find("request") then
-                        -- НЕ скрываем важные элементы торговли
-                        if not (obj.Name == "FinalizingTrade" or obj.Parent and obj.Parent.Name == "Trading") then
+                    -- Также проверяем Frame элементы (могут содержать уведомления)
+                    if obj:IsA("Frame") and obj.Visible then
+                        local position = obj.AbsolutePosition
+                        local size = obj.AbsoluteSize
+                        local screenCenter = workspace.CurrentCamera.ViewportSize
+                        local centerX = screenCenter.X / 2
+                        local centerY = screenCenter.Y / 2
+                        
+                        local objCenterX = position.X + size.X / 2
+                        local objCenterY = position.Y + size.Y / 2
+                        
+                        local isInCenter = math.abs(objCenterX - centerX) < 150 and math.abs(objCenterY - centerY) < 150
+                        
+                        if isInCenter and (obj.Name:lower():find("trade") or obj.Name:lower():find("gift") or 
+                                          obj.Name:lower():find("request") or obj.Name:lower():find("notification")) then
                             obj.Visible = false
                         end
                     end
@@ -28,11 +77,27 @@ local function hideTradeNotifications()
     end)
 end
 
--- Запускаем скрытие каждые 2 секунды (не каждый кадр!)
+-- Запускаем скрытие каждые 1.5 секунды (оптимизировано)
 task.spawn(function()
     while true do
-        hideTradeNotifications()
-        task.wait(2)
+        hideMiddleScreenText()
+        task.wait(1.5)
+    end
+end)
+
+-- Дополнительная защита: скрываем новые элементы сразу при появлении
+LocalPlayer.PlayerGui.DescendantAdded:Connect(function(obj)
+    task.wait(0.5) -- Даем элементу появиться
+    
+    if obj:IsA("TextLabel") and obj.Visible then
+        local text = obj.Text:lower()
+        
+        if text:find("trade") or text:find("gift") or text:find("request") or text:find("accept") then
+            if not (obj.Name:find("Finalizing") or (obj.Parent and obj.Parent.Name == "Trading")) then
+                obj.Visible = false
+                obj.TextTransparency = 1
+            end
+        end
     end
 end)
 
