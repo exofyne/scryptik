@@ -1,4 +1,6 @@
--- Создание окна
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+
 local Window = WindUI:CreateWindow({
     Title = "KNock-hub",
     Icon = "palette",
