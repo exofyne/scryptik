@@ -1,72 +1,4 @@
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
-
-WindUI:Localization({
-    Enabled = true,
-    Prefix = "loc:",
-    DefaultLanguage = "en",
-    Translations = {
-        ["ru"] = {
-            ["WINDUI_EXAMPLE"] = "WindUI Пример",
-            ["WELCOME"] = "Добро пожаловать в WindUI!",
-            ["LIB_DESC"] = "Библиотека для создания красивых интерфейсов",
-            ["SETTINGS"] = "Настройки",
-            ["APPEARANCE"] = "Внешний вид",
-            ["FEATURES"] = "Функционал",
-            ["UTILITIES"] = "Инструменты",
-            ["UI_ELEMENTS"] = "UI Элементы",
-            ["CONFIGURATION"] = "Конфигурация",
-            ["SAVE_CONFIG"] = "Сохранить конфигурацию",
-            ["LOAD_CONFIG"] = "Загрузить конфигурацию",
-            ["THEME_SELECT"] = "Выберите тему",
-            ["TRANSPARENCY"] = "Прозрачность окна"
-        },
-        ["en"] = {
-            ["WINDUI_EXAMPLE"] = "WindUI Example",
-            ["WELCOME"] = "Welcome to WindUI!",
-            ["LIB_DESC"] = "Beautiful UI library for Roblox",
-            ["SETTINGS"] = "Settings",
-            ["APPEARANCE"] = "Appearance",
-            ["FEATURES"] = "Features",
-            ["UTILITIES"] = "Utilities",
-            ["UI_ELEMENTS"] = "UI Elements",
-            ["CONFIGURATION"] = "Configuration",
-            ["SAVE_CONFIG"] = "Save Configuration",
-            ["LOAD_CONFIG"] = "Load Configuration",
-            ["THEME_SELECT"] = "Select Theme",
-            ["TRANSPARENCY"] = "Window Transparency"
-        }
-    }
-})
-
-WindUI.TransparencyValue = 0.2
-WindUI:SetTheme("Dark")
-
-local function gradient(text, startColor, endColor)
-    local result = ""
-    for i = 1, #text do
-        local t = (i - 1) / (#text - 1)
-        local r = math.floor((startColor.R + (endColor.R - startColor.R) * t) * 255)
-        local g = math.floor((startColor.G + (endColor.G - startColor.G) * t) * 255)
-        local b = math.floor((startColor.B + (endColor.B - startColor.B) * t) * 255)
-        result = result .. string.format('<font color="rgb(%d,%d,%d)">%s</font>', r, g, b, text:sub(i, i))
-    end
-    return result
-end
-
-WindUI:Popup({
-    Title = gradient("KNock-hub Demo", Color3.fromHex("#6A11CB"), Color3.fromHex("#2575FC")),
-    Icon = "sparkles",
-    Content = "loc:LIB_DESC",
-    Buttons = {
-        {
-            Title = "Get Started",
-            Icon = "arrow-right",
-            Variant = "Primary",
-            Callback = function() end
-        }
-    }
-})
-
+-- Создание окна
 local Window = WindUI:CreateWindow({
     Title = "KNock-hub",
     Icon = "palette",
@@ -92,91 +24,19 @@ Window:Tag({
     Color = Color3.fromHex("#30ff6a")
 })
 
--- главные заголовки
-local Tabs = {
-    Auto = Window:Section({ Title = "Automation", Opened = true }),
-}
+-- Создание вкладок (исправлено)
+local AutoBuyTab = Window:Tab({ 
+    Title = "Auto Buy", 
+    Icon = "shopping-cart" 
+})
 
--- подзаголовки
-local TabHandles = {
-    Elements = Tabs.Auto:Tab({ Title = "Auto buy", Icon = "layout-grid"}),
-    Sellements = Tabs.Auto:Tab({ Title = "Auto sell", Icon = "layout-grid"}),
-}
+local AutoSellTab = Window:Tab({ 
+    Title = "Auto Sell", 
+    Icon = "dollar-sign" 
+})
 
--- Сервисы и RemoteEvents
-local RS = game:GetService("ReplicatedStorage")
-local BuySeedRE = RS:WaitForChild("GameEvents"):WaitForChild("BuySeedStock")
-local BuyGearRE = RS:WaitForChild("GameEvents"):WaitForChild("BuyGearStock")
-local BuyEggRE = RS:WaitForChild("GameEvents"):WaitForChild("BuyPetEgg")
-local SellItemRE = RS:WaitForChild("GameEvents"):WaitForChild("Sell_Item")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayers
-local backpack = LocalPlayer:WaitForChild("Backpack")
-
--- Функции для нормализации
-local function normalizeSelection(option)
-    if typeof(option) == "string" then
-        return { option }
-    elseif typeof(option) == "table" then
-        if option[1] ~= nil then
-            return option
-        end
-        local out = {}
-        for k, v in pairs(option) do
-            if v then table.insert(out, k) end
-        end
-        return out
-    end
-    return {}
-end
-
--- Функции покупки
-local function BuySeed(seedName)
-    if type(seedName) ~= "string" or seedName == "" or seedName == "not" then return end
-    BuySeedRE:FireServer(seedName)
-end
-
-local function BuyGear(gearName)
-    if type(gearName) ~= "string" or gearName == "" or gearName == "not" then return end
-    BuyGearRE:FireServer(gearName)
-end
-
-local function BuyEgg(eggName)
-    if type(eggName) ~= "string" or eggName == "" or eggName == "not" then return end
-    BuyEggRE:FireServer(eggName)
-end
-
-local function SellItem(seedsName)
-        if type(seedsName) ~= "string" or seedsName == "" or seedsName == "not" then return end
-    SellItemRE:FireServer(seedsName)
-end
-
--- ПЕРЕМЕННЫЕ ДЛЯ SEEDS
-local selectedSeeds = {}
-local seedAutoRunning = false
-local seedLoopThread = nil
-local seedInterval = 0.5
-
--- ПЕРЕМЕННЫЕ ДЛЯ GEARS
-local selectedGears = {}
-local gearAutoRunning = false
-local gearLoopThread = nil
-local gearInterval = 0.5
-
--- ПЕРЕМЕННЫЕ ДЛЯ EGG
-local selectedEggs = {}
-local eggAutoRunning = false
-local eggLoopThread = nil
-local eggInterval = 0.5
-
--- ПЕРЕМЕННЫЕ ДЛЯ SELL ONE
-local selectedItems = {}
-local sellAutoRunning = false
-local sellLoopThread = nil
-local sellInterval = 0.5
-
--- SEED DROPDOWN
-local SeedDropdown = TabHandles.Elements:Dropdown({
+-- Добавляем элементы в вкладку Auto Buy
+local SeedDropdown = AutoBuyTab:Dropdown({
     Title = "Seed Shop",
     Values = { "Carrot", "Tomato", "Strawberry", "Blueberry", "Orange Tulip",
     "Corn", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo", "Coconut",
@@ -193,8 +53,7 @@ local SeedDropdown = TabHandles.Elements:Dropdown({
     end
 })
 
--- SEED TOGGLE
-local SeedToggle = TabHandles.Elements:Toggle({
+local SeedToggle = AutoBuyTab:Toggle({
     Title = "Auto buy Seeds",
     Value = false,
     Callback = function(state)
@@ -218,10 +77,9 @@ local SeedToggle = TabHandles.Elements:Toggle({
     end
 })
 
-TabHandles.Elements:Divider()
+AutoBuyTab:Divider()
 
--- GEAR DROPDOWN
-local GearDropdown = TabHandles.Elements:Dropdown({
+local GearDropdown = AutoBuyTab:Dropdown({
     Title = "Gear Shop",
     Values = { "Watering Can", "Trowel", "Trading Ticket", "Recall Wrench", "Basic Sprinkler",
     "Firework", "Advanced Sprinkler", "Medium Treat", "Medium Toy", "Godly Sprinkler", "Magnifying Glass",
@@ -237,8 +95,7 @@ local GearDropdown = TabHandles.Elements:Dropdown({
     end
 })
 
--- GEAR TOGGLE
-local GearToggle = TabHandles.Elements:Toggle({
+local GearToggle = AutoBuyTab:Toggle({
     Title = "Auto buy Gears",
     Value = false,
     Callback = function(state)
@@ -262,10 +119,9 @@ local GearToggle = TabHandles.Elements:Toggle({
     end
 })
 
-TabHandles.Elements:Divider()
+AutoBuyTab:Divider()
 
--- EGG DROPDOWN
-local EggDropdown = TabHandles.Elements:Dropdown({
+local EggDropdown = AutoBuyTab:Dropdown({
     Title = "Pet Shop",
     Values = { "Common Egg", "Uncommon Egg", "Rare Egg", "Legendary Egg", "Mythical Egg",
     "Bug Egg",
@@ -279,8 +135,7 @@ local EggDropdown = TabHandles.Elements:Dropdown({
     end
 })
 
--- EGG TOGGLE
-local EggToggle = TabHandles.Elements:Toggle({
+local EggToggle = AutoBuyTab:Toggle({
     Title = "Auto buy Egg",
     Value = false,
     Callback = function(state)
@@ -304,9 +159,9 @@ local EggToggle = TabHandles.Elements:Toggle({
     end
 })
 
--- SELL DROPDOWN
-local SellDropdown = TabHandles.Sellements:Dropdown({
-    Title = "Sell Fruit",
+-- Добавляем элементы в вкладку Auto Sell
+local SellDropdown = AutoSellTab:Dropdown({
+    Title = "Sell Items",
     Values = { "Carrot", "Tomato", "Strawberry", "Blueberry", "Orange Tulip",
     "Corn", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo", "Coconut",
     "Cactus", "Dragon Fruit", "Mango", "Grape", "Mushroom", "Pepper", "Cacao",
@@ -317,13 +172,12 @@ local SellDropdown = TabHandles.Sellements:Dropdown({
     Multi = true,
     AllowNone = true,
     Callback = function(option)
-        selectedSeeds = normalizeSelection(option)
+        selectedSellItems = normalizeSelection(option)
         print("Sell selected: " .. game:GetService("HttpService"):JSONEncode(selectedSellItems)) 
     end
 })
 
--- SELL TOGGLE
-local SellToggle = TabHandles.Sellements:Toggle({
+local SellToggle = AutoSellTab:Toggle({
     Title = "Auto Sell Items",
     Value = false,
     Callback = function(state)
@@ -333,14 +187,14 @@ local SellToggle = TabHandles.Sellements:Toggle({
             sellLoopThread = coroutine.create(function()
                 while sellAutoRunning do
                     for _, item in ipairs(backpack:GetChildren()) do
-                        for _, selectedItems in ipairs(selectedItems) do
-                            if item.Name == selectedItems then
+                        for _, selectedItem in ipairs(selectedSellItems) do
+                            if item.Name == selectedItem then
                                 SellItem(item.Name)
                                 task.wait(0.05)
                                 break
                             end
                         end
-                    end    
+                    end
                     task.wait(sellInterval)
                 end
             end)
