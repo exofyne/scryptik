@@ -333,8 +333,8 @@ local SellToggle = TabHandles.Sellements:Toggle({
             sellLoopThread = coroutine.create(function()
                 while sellAutoRunning do
                     for _, item in ipairs(backpack:GetChildren()) do
-                        for _, selectedItem in ipairs(selectedItems) do
-                            if item.Name == selectedItem then
+                        for _, selectedItems in ipairs(selectedItems) do
+                            if item.Name == selectedItems then
                                 SellItem(item.Name)
                                 task.wait(0.05)
                                 break
