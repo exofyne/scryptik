@@ -99,8 +99,8 @@ local Tabs = {
 
 -- подзаголовки
 local TabHandles = {
-    Elements = Tabs.Auto:Tab({ Title = "Auto buy", Icon = "layout-grid"}),
-    Sellements = Tabs.Auto:Tab({ Title = "Auto sell", Icon = "layout-grid"}),
+    Elements = Tabs.Auto:Tab({ Title = "Auto buy", Icon = "layout-grid", Desc = "UI Elements Example"}),
+    Sellements = Tabs.Auto:Tab({ Title = "Auto sell", Icon = "layout-grid", Desc = "UI Elements Example"}),
 }
 
 -- Сервисы и RemoteEvents
@@ -300,6 +300,59 @@ local EggToggle = TabHandles.Elements:Toggle({
             WindUI:Notify({ Title = "Auto Buy Eggs", Content = "Started", Duration = 2 })
         else
             WindUI:Notify({ Title = "Auto Buy Eggs", Content = "Stopped", Duration = 2 })
+        end
+    end
+})
+
+-- SELL DROPDOWN
+local SellDropdown = TabHandles.Sellements:Dropdown({
+    Title = "Sell Fruit",
+    Values = { "Carrot", "Tomato", "Strawberry", "Blueberry", "Orange Tulip",
+    "Corn", "Daffodil", "Watermelon", "Pumpkin", "Apple", "Bamboo", "Coconut",
+    "Cactus", "Dragon Fruit", "Mango", "Grape", "Mushroom", "Pepper", "Cacao",
+    "Beanstalk", "Ember Lily", "Sugar Apple", "Burning Bud", "Giant Pinecone",
+    "Elder Strawberry", "Romanesco"
+    },
+    Value = { "not" },
+    Multi = true,
+    AllowNone = true,
+    Callback = function(option)
+        selectedSellItems = normalizeSelection(option)  -- используем новую переменную
+        print("Sell selected: " .. game:GetService("HttpService"):JSONEncode(selectedSellItems)) 
+    end
+})
+
+-- SELL TOGGLE (полностью исправлено)
+local SellToggle = TabHandles.Sellements:Toggle({
+    Title = "Auto Sell Items",  -- правильный заголовок
+    Value = false,
+    Callback = function(state)
+        sellAutoRunning = state
+        if sellAutoRunning then
+            if sellLoopThread and coroutine.status(sellLoopThread) ~= "dead" then return end
+            sellLoopThread = coroutine.create(function()
+                while sellAutoRunning do
+                    -- Получаем все предметы из инвентаря
+                    for _, item in pairs(backpack:GetChildren()) do
+                        -- Проверяем, является ли это инструментом/предметом
+                        if item:IsA("Tool") then
+                            -- Проверяем, выбран ли этот предмет для продажи
+                            for _, selectedItem in ipairs(selectedSellItems) do
+                                if item.Name == selectedItem then
+                                    SellItem(item.Name)
+                                    task.wait(0.05)
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    task.wait(sellInterval)
+                end
+            end)
+            coroutine.resume(sellLoopThread)
+            WindUI:Notify({ Title = "Auto Sell Items", Content = "Started", Duration = 2 })
+        else
+            WindUI:Notify({ Title = "Auto Sell Items", Content = "Stopped", Duration = 2 })
         end
     end
 })
